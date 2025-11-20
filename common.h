@@ -9,10 +9,6 @@
   #define DCPCALL __attribute__((stdcall))
 #else
   #define DCPCALL
-  // modified here add 3 lines below (to compile for ARM64, M1 mac)
-  #if defined(__aarch64__)
-    #define __stdcall
-  #endif
 #endif
 
 #define MAX_PATH 260
@@ -68,8 +64,7 @@ typedef struct _WIN32_FIND_DATA {
 	DWORD dwReserved1;
 	WCHAR cFileName[MAX_PATH];
 	WCHAR cAlternateFileName[14];
-} WIN32_FIND_DATA,*LPWIN32_FIND_DATA,WIN32_FIND_DATAW,*LPWIN32_FIND_DATAW; 
-// modified line above add: WIN32_FIND_DATA,*LPWIN32_FIND_DATA,
+} WIN32_FIND_DATAW,*LPWIN32_FIND_DATAW; 
 
 #pragma pack(pop)
 

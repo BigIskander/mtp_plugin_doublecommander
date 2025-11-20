@@ -24,7 +24,7 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
     /* not implemented yet */
-    return (HANDLE) -1;
+    return (HANDLE)-1;
 }
 
 BOOL DCPCALL FsFindNextW(HANDLE Hdl, WIN32_FIND_DATAW *FindData)
