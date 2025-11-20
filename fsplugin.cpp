@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <cstring>
 #include "common.h"
 #include "fsplugin.h"
@@ -23,6 +22,7 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
+    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"FsFindFirstW was called... success...");
     /* not implemented yet */
     return (HANDLE)-1;
 }
