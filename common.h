@@ -1,0 +1,89 @@
+#ifndef _COMMON_H
+#define _COMMON_H
+
+#ifdef __GNUC__
+
+#include <stdint.h>
+
+#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN64)
+  #define DCPCALL __attribute__((stdcall))
+#else
+  #define DCPCALL
+  // modified here add 3 lines below (to compile for ARM64, M1 mac)
+  #if defined(__aarch64__)
+    #define __stdcall
+  #endif
+#endif
+
+#define MAX_PATH 260
+
+typedef int32_t LONG;
+typedef uint32_t DWORD;
+typedef uint16_t WORD;
+typedef void *HANDLE;
+typedef HANDLE HICON;
+typedef HANDLE HBITMAP;
+typedef HANDLE HWND;
+typedef int BOOL;
+typedef char CHAR;
+typedef uint16_t WCHAR;
+typedef intptr_t LPARAM;
+typedef uintptr_t WPARAM;
+
+#pragma pack(push, 1)
+
+typedef struct _RECT {
+  LONG left;
+  LONG top;
+  LONG right;
+  LONG bottom;
+} RECT, *PRECT;
+
+typedef struct _FILETIME {
+	DWORD dwLowDateTime;
+	DWORD dwHighDateTime;
+} FILETIME,*PFILETIME,*LPFILETIME;
+
+typedef struct _WIN32_FIND_DATAA {
+	DWORD dwFileAttributes;
+	FILETIME ftCreationTime;
+	FILETIME ftLastAccessTime;
+	FILETIME ftLastWriteTime;
+	DWORD nFileSizeHigh;
+	DWORD nFileSizeLow;
+	DWORD dwReserved0;
+	DWORD dwReserved1;
+	CHAR cFileName[MAX_PATH];
+	CHAR cAlternateFileName[14];
+} WIN32_FIND_DATAA,*LPWIN32_FIND_DATAA;
+
+typedef struct _WIN32_FIND_DATA {
+	DWORD dwFileAttributes;
+	FILETIME ftCreationTime;
+	FILETIME ftLastAccessTime;
+	FILETIME ftLastWriteTime;
+	DWORD nFileSizeHigh;
+	DWORD nFileSizeLow;
+	DWORD dwReserved0;
+	DWORD dwReserved1;
+	WCHAR cFileName[MAX_PATH];
+	WCHAR cAlternateFileName[14];
+} WIN32_FIND_DATA,*LPWIN32_FIND_DATA,WIN32_FIND_DATAW,*LPWIN32_FIND_DATAW; 
+// modified line above add: WIN32_FIND_DATA,*LPWIN32_FIND_DATA,
+
+#pragma pack(pop)
+
+#else
+
+#if defined(_WIN32) || defined(_WIN64)
+  #define DCPCALL __stdcall
+#else
+  #define DCPCALL __cdecl
+#endif
+
+#endif
+
+#endif // _COMMON_H
+
+// modified file from this source (accessed: 20 nov 2025):
+// https://github.com/ivanenko/cloud_storage/blob/master/common.h
