@@ -1,1 +1,1 @@
-clang++ fsplugin.cpp -c -o fsplugin.wfx64
+clang fsplugin.cpp -shared -fPIC -o fsplugin.wfx64
