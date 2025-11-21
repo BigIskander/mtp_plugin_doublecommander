@@ -1,6 +1,7 @@
 #include <cstring>
 #include "common.h"
 #include "fsplugin.h"
+#include <libmtp.h>
 
 #define _plugin_name "MTP plugin for Double Commander"
 
@@ -22,6 +23,7 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
+    LIBMTP_Init();
     gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"FsFindFirstW was called... success...");
     /* not implemented yet */
     return (HANDLE)-1;
