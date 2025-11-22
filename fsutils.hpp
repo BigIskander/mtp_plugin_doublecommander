@@ -27,13 +27,12 @@ License along with this library; if not, write to the Free Software
 #include "utils.hpp"
 #include <libmtp.h>
 
-pResources show_error_entry(char* error) 
-{
+pResources show_error_entry(wcharstring error) {
     pResources pRes = new tResources;
     pRes->nCount = 0;
     pRes->resource_array.resize(1);
 
-    wcharstring wName = UTF8toUTF16(error);
+    wcharstring wName = error;
     size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
         
     // output error message as unknown file entry
@@ -44,6 +43,11 @@ pResources show_error_entry(char* error)
     pRes->resource_array[0].ftLastWriteTime = get_now_time();
     pRes->resource_array[0].ftLastAccessTime = get_now_time();
     return pRes;
+} 
+
+pResources show_error_entry(char* error) 
+{
+    return show_error_entry(UTF8toUTF16(error));
 }
 
 pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevices) 
@@ -55,7 +59,7 @@ pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevice
     // list all available MTP devices
     for (int i = 0; i < numrawdevices; i++) {                    
         // make folder entry (path) name for each device
-        wcharstring wName = int_to_wcharstring(i + 1).append(UTF8toUTF16("."));
+        wcharstring wName = int_to_wcharstring(573).append(UTF8toUTF16("."));
         if(rawdevices[i].device_entry.vendor != NULL)
             wName.append(UTF8toUTF16(rawdevices[i].device_entry.vendor));
         else
@@ -81,6 +85,25 @@ pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevice
         pRes->resource_array[i].ftLastAccessTime = get_now_time();
     }
     return pRes;
+}
+
+void parsePath(wcharstring wPath, wcharstring& deviceI, wcharstring& folderPath)
+{
+    size_t nPos = wPath.find((WCHAR*)u".", 1);
+    size_t nPos2 = wPath.find((WCHAR*)u"/", nPos);
+    wcharstring deviceINum, path;
+
+    if(nPos == std::string::npos) {
+        deviceI = (WCHAR*)u"0";
+    } else {
+        deviceI = wPath.substr(1, nPos-1);
+    }
+    if(nPos2 == std::string::npos)
+    {
+        folderPath = (WCHAR*)u"/";
+    } else {
+        folderPath = wPath.substr(nPos2);
+    }
 }
 
 #endif

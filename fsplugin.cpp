@@ -95,6 +95,9 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
         }
     } else {
+        wcharstring deviceI, folderPath;
+        parsePath(wPath, deviceI, folderPath);
+        pRes = show_error_entry(int_to_wcharstring(wcharstring_to_int(deviceI)));
         /* not implemented yet */
     }
 

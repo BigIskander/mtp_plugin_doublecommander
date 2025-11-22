@@ -44,6 +44,12 @@ FILETIME get_now_time()
     return file_time;
 }
 
+std::string UTF16toUTF8(const WCHAR *p)
+{
+    std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> convert2;
+    return convert2.to_bytes(std::u16string((char16_t*) p));
+}
+
 wcharstring UTF8toUTF16(const std::string &str)
 {
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> convert2;
@@ -110,6 +116,57 @@ wcharstring int_to_wcharstring(int num)
     wcharstring output = UTF8toUTF16(numchar);
     delete numchar;
     return output;
+}
+
+// add function to convert int to wcharstring
+int wcharstring_to_int(wcharstring num) {
+    int outn = 0, len = num.size(), mul = 1;
+    WCHAR* wnum = (WCHAR*)num.data();
+    for (int i = len - 1; i >= 0; i--)
+    {        
+        switch ((WCHAR)wnum[i])
+        {
+        case (WCHAR)u'-':
+            if(i == 0) outn = -1 * outn;
+            else outn = outn + 0 * mul;
+            break;
+        case (WCHAR)u'0':
+            outn = outn + 0 * mul;
+            break;
+        case (WCHAR)u'1':
+            outn = outn + 1 * mul;
+            break;
+        case (WCHAR)u'2':
+            outn = outn + 2 * mul;
+            break;
+        case (WCHAR)u'3':
+            outn = outn + 3 * mul;
+            break;
+        case (WCHAR)u'4':
+            outn = outn + 4 * mul;
+            break;
+        case (WCHAR)u'5':
+            outn = outn + 5 * mul;
+            break;
+        case (WCHAR)u'6':
+            outn = outn + 6 * mul;
+            break;
+        case (WCHAR)u'7':
+            outn = outn + 7 * mul;
+            break;
+        case (WCHAR)u'8':
+            outn = outn + 8 * mul;
+            break;
+        case (WCHAR)u'9':
+            outn = outn + 9 * mul;
+            break;
+        default:
+            outn = outn + 0 * mul;
+            break;
+        }
+        mul = mul * 10;
+    }
+    return outn;
 }
 
 #endif
