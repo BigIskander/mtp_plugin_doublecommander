@@ -44,72 +44,117 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
     return 0;
 }
 
+// MTP Devices data
+LIBMTP_raw_device_t * rawdevices;
+int numrawdevices;
+LIBMTP_error_number_t err;
+
+pResources show_error_entry(char* error) {
+    pResources pRes = new tResources;
+    pRes->nCount = 0;
+    pRes->resource_array.resize(1);
+
+    wcharstring wName = UTF8toUTF16(error);
+    size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
+        
+    // output error message as unknown file entry
+    memcpy(pRes->resource_array[0].cFileName, wName.data(), sizeof(WCHAR) * str_size);
+    pRes->resource_array[0].nFileSizeLow = 0;
+    pRes->resource_array[0].nFileSizeHigh = 0;
+    pRes->resource_array[0].ftCreationTime = get_now_time();
+    pRes->resource_array[0].ftLastWriteTime = get_now_time();
+    pRes->resource_array[0].ftLastAccessTime = get_now_time();
+    return pRes;
+}
+
+pResources show_devices_entry() {
+    pResources pRes = new tResources;
+    pRes->nCount = 0;
+    pRes->resource_array.resize(numrawdevices);
+
+    // list all available MTP devices
+    for (int i = 0; i < numrawdevices; i++) {                    
+        // make folder entry (path) name for each device
+        wcharstring wName = UTF8toUTF16("1.");
+        if(rawdevices[i].device_entry.vendor != NULL)
+            wName.append(UTF8toUTF16(rawdevices[i].device_entry.vendor));
+        else
+            wName.append(UTF8toUTF16("Noname"));
+        if(rawdevices[i].device_entry.product != NULL)
+            wName
+                .append(UTF8toUTF16(" ("))
+                .append(UTF8toUTF16(rawdevices[i].device_entry.product))
+                .append(UTF8toUTF16(")"));
+        // sanitize data no slashes in path name
+        std::replace(wName.begin(), wName.end(), U'\\', U' ');
+        std::replace(wName.begin(), wName.end(), U'/', U' ');
+
+        size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
+        
+        // output device entry as a folder
+        memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
+        pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        pRes->resource_array[i].nFileSizeLow = 0;
+        pRes->resource_array[i].nFileSizeHigh = 0;
+        pRes->resource_array[i].ftCreationTime = get_now_time();
+        pRes->resource_array[i].ftLastWriteTime = get_now_time();
+        pRes->resource_array[i].ftLastAccessTime = get_now_time();
+    }
+    return pRes;
+}
+
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
     pResources pRes = NULL;
-
-    LIBMTP_raw_device_t * rawdevices;
-    int numrawdevices;
-    LIBMTP_error_number_t err;
     int i;
-
-    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"FsFindFirstW was called... success...");
 
     LIBMTP_Init();
     err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
     
     switch(err) {
         case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
-            gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"No raw devices found.");
-            break;
+            {
+                gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
+                pRes = show_error_entry((char*) "No MTP device found.");  
+                break;
+            }
         case LIBMTP_ERROR_CONNECTING:
-            gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Detect: There has been an error connecting. Exiting");
-            break;
+            {
+                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: connection error.");
+                pRes = show_error_entry((char*) "Libmtp: connection error.");
+                break;
+            }
         case LIBMTP_ERROR_MEMORY_ALLOCATION:
-            gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Detect: Encountered a Memory Allocation Error. Exiting");
-            break;
+            {
+                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: memory allocation error.");
+                pRes = show_error_entry((char*) "Libmtp: memory allocation error.");
+                break;
+            }
         case LIBMTP_ERROR_NONE:
             {
-                gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Detect: Yes devices... kinda.. not implemented yet");
-                pResources pRes = new tResources;
-                pRes->nCount = 0;
-                pRes->resource_array.resize(numrawdevices);
-
-                for (i = 0; i < numrawdevices; i++) {
-                    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Device:");
-                    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) rawdevices[i].device_entry.product);
-
-                    wcharstring wName = UTF8toUTF16(rawdevices[i].device_entry.product);
-                    size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
-
-                    memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
-                    pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-                    pRes->resource_array[i].nFileSizeLow = 0;
-                    pRes->resource_array[i].nFileSizeHigh = 0;
-                    pRes->resource_array[i].ftCreationTime = get_now_time();
-                    pRes->resource_array[i].ftLastWriteTime = get_now_time();
-                    pRes->resource_array[i].ftLastAccessTime = get_now_time();
-                }
-
-                if(!pRes || pRes->resource_array.size()==0)
-                    return (HANDLE)-1;
-
-                if(pRes->resource_array.size()>0){
-                    memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
-                    memcpy(FindData, &(pRes->resource_array[0]), sizeof(WIN32_FIND_DATAW));
-                    pRes->nCount++;
-                }
-
-                return (HANDLE) pRes;
+                pRes = show_devices_entry();
+                break;
             }
-            break;
         case LIBMTP_ERROR_GENERAL:
         default:
-            gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Unknown connection error.");
+            {
+                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: unknown connection error.");
+                pRes = show_error_entry((char*) "Libmtp: unknown connection error.");
+            }
     }
-    
-    /* not implemented yet */
-    return (HANDLE)-1;
+
+    /* return results */
+
+    if(!pRes || pRes->resource_array.size()==0)
+        return (HANDLE)-1;
+
+    if(pRes->resource_array.size()>0){
+        memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
+        memcpy(FindData, &(pRes->resource_array[0]), sizeof(WIN32_FIND_DATAW));
+        pRes->nCount++;
+    }
+
+    return (HANDLE) pRes;
 }
 
 BOOL DCPCALL FsFindNextW(HANDLE Hdl, WIN32_FIND_DATAW *FindData)
