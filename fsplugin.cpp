@@ -24,6 +24,7 @@ License along with this library; if not, write to the Free Software
 #include "common.h"
 #include "fsplugin.h"
 #include "utils.hpp"
+#include "fsutils.hpp"
 #include <libmtp.h>
 
 #define _plugin_name "MTP plugin for Double Commander"
@@ -49,60 +50,6 @@ LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
 LIBMTP_error_number_t err;
 
-pResources show_error_entry(char* error) {
-    pResources pRes = new tResources;
-    pRes->nCount = 0;
-    pRes->resource_array.resize(1);
-
-    wcharstring wName = UTF8toUTF16(error);
-    size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
-        
-    // output error message as unknown file entry
-    memcpy(pRes->resource_array[0].cFileName, wName.data(), sizeof(WCHAR) * str_size);
-    pRes->resource_array[0].nFileSizeLow = 0;
-    pRes->resource_array[0].nFileSizeHigh = 0;
-    pRes->resource_array[0].ftCreationTime = get_now_time();
-    pRes->resource_array[0].ftLastWriteTime = get_now_time();
-    pRes->resource_array[0].ftLastAccessTime = get_now_time();
-    return pRes;
-}
-
-pResources show_devices_entry() {
-    pResources pRes = new tResources;
-    pRes->nCount = 0;
-    pRes->resource_array.resize(numrawdevices);
-
-    // list all available MTP devices
-    for (int i = 0; i < numrawdevices; i++) {                    
-        // make folder entry (path) name for each device
-        wcharstring wName = UTF8toUTF16("1.");
-        if(rawdevices[i].device_entry.vendor != NULL)
-            wName.append(UTF8toUTF16(rawdevices[i].device_entry.vendor));
-        else
-            wName.append(UTF8toUTF16("Noname"));
-        if(rawdevices[i].device_entry.product != NULL)
-            wName
-                .append(UTF8toUTF16(" ("))
-                .append(UTF8toUTF16(rawdevices[i].device_entry.product))
-                .append(UTF8toUTF16(")"));
-        // sanitize data no slashes in path name
-        std::replace(wName.begin(), wName.end(), U'\\', U' ');
-        std::replace(wName.begin(), wName.end(), U'/', U' ');
-
-        size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
-        
-        // output device entry as a folder
-        memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
-        pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-        pRes->resource_array[i].nFileSizeLow = 0;
-        pRes->resource_array[i].nFileSizeHigh = 0;
-        pRes->resource_array[i].ftCreationTime = get_now_time();
-        pRes->resource_array[i].ftLastWriteTime = get_now_time();
-        pRes->resource_array[i].ftLastAccessTime = get_now_time();
-    }
-    return pRes;
-}
-
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
     pResources pRes = NULL;
@@ -111,8 +58,9 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     wcharstring wPath(Path);
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
+    LIBMTP_Init();
+
     if(wPath.length() == 1) { // root folder of plugin
-        LIBMTP_Init();
         err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
         
         switch(err) {
@@ -136,7 +84,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_NONE:
                 {
-                    pRes = show_devices_entry(); 
+                    pRes = show_devices_entry(rawdevices, numrawdevices); 
                     break;
                 }
             case LIBMTP_ERROR_GENERAL:

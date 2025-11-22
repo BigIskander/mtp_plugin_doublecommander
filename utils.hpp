@@ -1,14 +1,9 @@
 /*
-    This is modified version of code copied from (accessed 22 nov 2025):
+    This is modified version of original code copied from (accessed 22 nov 2025):
     https://github.com/ivanenko/cloud_storage/blob/master/plugin_utils.h
 
-    Bellow is the Original Copiright notice.
-*/
-
-/*
-Wfx plugin for working with cloud storage services
-
 Copyright (C) 2019 Ivanenko Danil (ivanenko.danil@gmail.com)
+Copyright (C) 2025 Iskander Sultanov
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
@@ -54,6 +49,67 @@ wcharstring UTF8toUTF16(const std::string &str)
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> convert2;
     std::u16string utf16 = convert2.from_bytes(str);
     return wcharstring((WCHAR*)utf16.data());
+}
+
+// add function to convert int to wcharstring
+wcharstring int_to_wcharstring(int num) 
+{
+    int i = 1, n = abs(num) / 10, curnum, s = 0;
+    while (n > 0)
+    {
+        n = n / 10;
+        i++;
+    }
+    n = abs(num);
+    char* numchar;
+    if(num < 0)
+    {
+        numchar = new char[i + 1];
+        numchar[0] = '-';
+        s = 1;
+    } else {
+        numchar = new char[i];
+    }
+    for(int j = 0; j < i; j++) {
+        curnum = n % 10;
+        n = n / 10;
+        switch (curnum)
+        {
+            case 0:
+                numchar[i - j - 1 + s] = '0';
+                break;
+            case 1:
+                numchar[i - j - 1 + s] = '1';
+                break;
+            case 2:
+                numchar[i - j - 1 + s] = '2';
+                break;
+            case 3:
+                numchar[i - j - 1 + s] = '3';
+                break;
+            case 4:
+                numchar[i - j - 1 + s] = '4';
+                break;
+            case 5:
+                numchar[i - j - 1 + s] = '5';
+                break;
+            case 6:
+                numchar[i - j - 1 + s] = '6';
+                break;
+            case 7:
+                numchar[i - j - 1 + s] = '7';
+                break;
+            case 8:
+                numchar[i - j - 1 + s] = '8';
+                break;
+            case 9:
+                numchar[i - j - 1 + s] = '9';
+                break;
+        }
+    }
+    wcharstring output = UTF8toUTF16(numchar);
+    delete numchar;
+    return output;
 }
 
 #endif
