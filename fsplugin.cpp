@@ -47,8 +47,12 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
 
 // MTP Devices data
 LIBMTP_raw_device_t * rawdevices;
+LIBMTP_mtpdevice_t *device = NULL;
+std::vector<LIBMTP_mtpdevice_t*> openedDevices;
+std::vector<LIBMTP_raw_device_t*> openedRawDevices;
 int numrawdevices;
 LIBMTP_error_number_t err;
+bool scanned = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -61,7 +65,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     LIBMTP_Init();
 
     if(wPath.length() == 1) { // root folder of plugin
-        err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+        if(!scanned) 
+        {
+            err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+        }
+        scanned = true;
         
         switch(err) {
             case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
@@ -98,13 +106,27 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
         wcharstring deviceI, folderPath;
         parsePath(wPath, deviceI, folderPath);
         int devI = wcharstring_to_int(deviceI) - 1;
-        LIBMTP_mtpdevice_t *device;
-        device = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[devI]);
+        auto it = std::find(openedRawDevices.begin(), openedRawDevices.end(), &rawdevices[devI]);
+        if(it != openedRawDevices.end()) {
+            int ind = std::distance(openedRawDevices.begin(), it);
+            device = openedDevices[ind];
+        } else {
+            device = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[devI]);
+            if (device != NULL) {
+                openedDevices.push_back(device);
+                openedRawDevices.push_back(&rawdevices[devI]);
+            }
+        }
+
         if (device == NULL) {
             pRes = show_error_entry((char*) "No device...");
         } else {
             LIBMTP_devicestorage_t *storage;
             int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
+            // gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*)UTF8toUTF16("CONNECT ")
+            //     .append(wPath)
+            //     .data()
+            // );
             if (ret != 0) {
                 pRes = show_error_entry((char*) "No storage...");
             } else {
@@ -136,7 +158,6 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             }
 
-            
         }
 
         /* not implemented yet */
@@ -183,4 +204,20 @@ int DCPCALL FsFindClose(HANDLE Hdl)
 void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
 {
     strncpy(DefRootName, _plugin_name, maxlen);
+}
+
+// BOOL DCPCALL FsDisconnect(char* DisconnectRoot) 
+// {
+//     return true;
+// }
+
+int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
+{
+    WCHAR* ReturnedText;
+    int maxlen = 0;
+    if(strcmp(Verb, "open") == 0 && strcmp(RemoteName, "/<Update list of devices>") == 0) 
+    {
+        bool upd = gRequestProc(gPluginNumber, RT_MsgYesNo, (WCHAR*)u"Update list of devices?", (WCHAR*)u"All open MTP connections will be closed.", ReturnedText, maxlen); 
+    }
+    return FS_EXEC_OK;
 }

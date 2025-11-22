@@ -54,7 +54,19 @@ pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevice
 {
     pResources pRes = new tResources;
     pRes->nCount = 0;
-    pRes->resource_array.resize(numrawdevices);
+    pRes->resource_array.resize(numrawdevices + 1);
+    
+    wcharstring updateButton = UTF8toUTF16("<Update list of devices>");
+    size_t str_size = (MAX_PATH > updateButton.size()+1)? (updateButton.size()+1): MAX_PATH;
+        
+    // output device entry as a folder
+    memcpy(pRes->resource_array[0].cFileName, updateButton.data(), sizeof(WCHAR) * str_size);
+    // pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+    pRes->resource_array[0].nFileSizeLow = 0;
+    pRes->resource_array[0].nFileSizeHigh = 0;
+    pRes->resource_array[0].ftCreationTime = get_now_time();
+    pRes->resource_array[0].ftLastWriteTime = get_now_time();
+    pRes->resource_array[0].ftLastAccessTime = get_now_time();
 
     // list all available MTP devices
     for (int i = 0; i < numrawdevices; i++) {                    
@@ -76,13 +88,13 @@ pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevice
         size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
         
         // output device entry as a folder
-        memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
-        pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-        pRes->resource_array[i].nFileSizeLow = 0;
-        pRes->resource_array[i].nFileSizeHigh = 0;
-        pRes->resource_array[i].ftCreationTime = get_now_time();
-        pRes->resource_array[i].ftLastWriteTime = get_now_time();
-        pRes->resource_array[i].ftLastAccessTime = get_now_time();
+        memcpy(pRes->resource_array[i + 1].cFileName, wName.data(), sizeof(WCHAR) * str_size);
+        pRes->resource_array[i + 1].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        pRes->resource_array[i + 1].nFileSizeLow = 0;
+        pRes->resource_array[i + 1].nFileSizeHigh = 0;
+        pRes->resource_array[i + 1].ftCreationTime = get_now_time();
+        pRes->resource_array[i + 1].ftLastWriteTime = get_now_time();
+        pRes->resource_array[i + 1].ftLastAccessTime = get_now_time();
     }
     return pRes;
 }
