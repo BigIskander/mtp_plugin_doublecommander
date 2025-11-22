@@ -59,7 +59,7 @@ pResources show_devices_entry(LIBMTP_raw_device_t * rawdevices, int numrawdevice
     // list all available MTP devices
     for (int i = 0; i < numrawdevices; i++) {                    
         // make folder entry (path) name for each device
-        wcharstring wName = int_to_wcharstring(573).append(UTF8toUTF16("."));
+        wcharstring wName = int_to_wcharstring(i + 1).append(UTF8toUTF16("."));
         if(rawdevices[i].device_entry.vendor != NULL)
             wName.append(UTF8toUTF16(rawdevices[i].device_entry.vendor));
         else

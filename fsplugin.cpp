@@ -97,7 +97,48 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     } else {
         wcharstring deviceI, folderPath;
         parsePath(wPath, deviceI, folderPath);
-        pRes = show_error_entry(int_to_wcharstring(wcharstring_to_int(deviceI)));
+        int devI = wcharstring_to_int(deviceI) - 1;
+        LIBMTP_mtpdevice_t *device;
+        device = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[devI]);
+        if (device == NULL) {
+            pRes = show_error_entry((char*) "No device...");
+        } else {
+            LIBMTP_devicestorage_t *storage;
+            int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
+            if (ret != 0) {
+                pRes = show_error_entry((char*) "No storage...");
+            } else {
+                int numOfStarages = 0;
+                for (storage = device->storage; storage != 0; storage = storage->next) {
+                    numOfStarages++;
+                }
+
+                // pRes = show_error_entry((char*) "What...");
+
+                pRes = new tResources;
+                pRes->nCount = 0;
+                pRes->resource_array.resize(numOfStarages);
+                wcharstring wName;
+                storage = device->storage;
+                for (i = 0; i < numOfStarages; i++) {
+                    wName = UTF8toUTF16(storage->StorageDescription);
+                    size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
+                
+                    // output device entry as a folder
+                    memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
+                    pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+                    pRes->resource_array[i].nFileSizeLow = 0;
+                    pRes->resource_array[i].nFileSizeHigh = 0;
+                    pRes->resource_array[i].ftCreationTime = get_now_time();
+                    pRes->resource_array[i].ftLastWriteTime = get_now_time();
+                    pRes->resource_array[i].ftLastAccessTime = get_now_time();
+                    storage = storage->next;
+                }
+            }
+
+            
+        }
+
         /* not implemented yet */
     }
 
