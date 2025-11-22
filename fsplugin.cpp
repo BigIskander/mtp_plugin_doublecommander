@@ -108,39 +108,46 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     pResources pRes = NULL;
     int i;
 
-    LIBMTP_Init();
-    err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
-    
-    switch(err) {
-        case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
-            {
-                gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
-                pRes = show_error_entry((char*) "No MTP device found.");  
-                break;
-            }
-        case LIBMTP_ERROR_CONNECTING:
-            {
-                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: connection error.");
-                pRes = show_error_entry((char*) "Libmtp: connection error.");
-                break;
-            }
-        case LIBMTP_ERROR_MEMORY_ALLOCATION:
-            {
-                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: memory allocation error.");
-                pRes = show_error_entry((char*) "Libmtp: memory allocation error.");
-                break;
-            }
-        case LIBMTP_ERROR_NONE:
-            {
-                pRes = show_devices_entry();
-                break;
-            }
-        case LIBMTP_ERROR_GENERAL:
-        default:
-            {
-                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: unknown connection error.");
-                pRes = show_error_entry((char*) "Libmtp: unknown connection error.");
-            }
+    wcharstring wPath(Path);
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    if(wPath.length() == 1) { // root folder of plugin
+        LIBMTP_Init();
+        err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+        
+        switch(err) {
+            case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
+                {
+                    gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
+                    pRes = show_error_entry((char*) "No MTP device found.");  
+                    break;
+                }
+            case LIBMTP_ERROR_CONNECTING:
+                {
+                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: connection error.");
+                    pRes = show_error_entry((char*) "Libmtp: connection error.");
+                    break;
+                }
+            case LIBMTP_ERROR_MEMORY_ALLOCATION:
+                {
+                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: memory allocation error.");
+                    pRes = show_error_entry((char*) "Libmtp: memory allocation error.");
+                    break;
+                }
+            case LIBMTP_ERROR_NONE:
+                {
+                    pRes = show_devices_entry(); 
+                    break;
+                }
+            case LIBMTP_ERROR_GENERAL:
+            default:
+                {
+                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: unknown connection error.");
+                    pRes = show_error_entry((char*) "Libmtp: unknown connection error.");
+                }
+        }
+    } else {
+        /* not implemented yet */
     }
 
     /* return results */
