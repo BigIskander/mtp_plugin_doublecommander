@@ -1,7 +1,7 @@
 /*
 MTP plugin for Double Commander
 
-Wfx plugin for working with MTP (Media Transfer Protocol) devices
+Wfx plugin for working with MTP (Media Transfer Protocol) devices in macOS.
 
 Copyright (C) 2025 Iskander Sultanov (BigIskander@gmail.com)
 
@@ -139,6 +139,33 @@ pResources showDevices()
         pRes->resource_array[i].ftCreationTime = get_now_time();
         pRes->resource_array[i].ftLastWriteTime = get_now_time();
         pRes->resource_array[i].ftLastAccessTime = get_now_time();
+    }
+    return pRes;
+}
+
+pResources showStorages(LIBMTP_mtpdevice_t* device) {
+    LIBMTP_devicestorage_t *storage;
+    int numOfStarages = 0;
+    for (storage = device->storage; storage != 0; storage = storage->next) {
+        numOfStarages++;
+    }
+    pResources pRes = new tResources;
+    pRes->nCount = 0;
+    pRes->resource_array.resize(numOfStarages);
+    wcharstring wName;
+    storage = device->storage;
+    for(int i = 0; i < numOfStarages; i++) {
+        wName = UTF8toUTF16(storage->StorageDescription);
+        size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
+        // output device entry as a folder
+        memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
+        pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        pRes->resource_array[i].nFileSizeLow = 0;
+        pRes->resource_array[i].nFileSizeHigh = 0;
+        pRes->resource_array[i].ftCreationTime = get_now_time();
+        pRes->resource_array[i].ftLastWriteTime = get_now_time();
+        pRes->resource_array[i].ftLastAccessTime = get_now_time();
+        storage = storage->next;
     }
     return pRes;
 }
