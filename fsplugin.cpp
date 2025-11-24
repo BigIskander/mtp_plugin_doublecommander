@@ -47,10 +47,7 @@ int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogPr
 
 // MTP Devices data
 LIBMTP_raw_device_t * rawdevices;
-LIBMTP_mtpdevice_t *device = NULL;
 int numrawdevices;
-LIBMTP_error_number_t err;
-bool scanned = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -63,7 +60,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     LIBMTP_Init();
 
     if(wPath.length() == 1) { // root folder of plugin
-        err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
+        int err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
         
         switch(err) {
             case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
@@ -108,10 +105,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
         }
     } else {
+        LIBMTP_mtpdevice_t *device;
         wcharstring deviceName, storageName, internalPath;
         parsePath(wPath, deviceName, storageName, internalPath);
         device = getDevice(deviceName);
-
+        
         if (device == NULL) {
             pRes = show_error_entry((char*) "No device...");
         } else {
@@ -119,18 +117,48 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             if(storageName == UTF8toUTF16("")) {
                 pRes = showStorages(device);
             } else {
-                pRes = show_error_entry((char*) "Not implemented yet...");
-                /* not implemented yet */
+                storage = getStorage(device, storageName);
+                if(storage != NULL) {
+                    LIBMTP_file_t *files;
+                    files = LIBMTP_Get_Files_And_Folders(device, storage->id, LIBMTP_FILES_AND_FOLDERS_ROOT);
+                    
+                    if (files != NULL) 
+                    {
+
+                        LIBMTP_file_t *file;
+                        file = files;
+                        int numOfEntries = 0;
+                        while (file != NULL) 
+                        {
+                            numOfEntries++;
+                            file = file->next;
+                        }
+
+                        pRes = new tResources;
+                        pRes->nCount = 0;
+                        pRes->resource_array.resize(numOfEntries);
+                                                
+                        file = files;
+                        size_t str_size;
+                        for (int i = 0; i < numOfEntries; i++)
+                        {
+                            str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
+                            memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
+                            if(file->filetype == LIBMTP_FILETYPE_FOLDER) pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+                            pRes->resource_array[i].nFileSizeLow = 0;
+                            pRes->resource_array[i].nFileSizeHigh = 0;
+                            pRes->resource_array[i].ftCreationTime = get_now_time();
+                            pRes->resource_array[i].ftLastWriteTime = get_now_time();
+                            pRes->resource_array[i].ftLastAccessTime = get_now_time();
+                            file = file->next;
+                        }
+                    }
+                } else {
+                    pRes = show_error_entry((char*) "No such storage...");
+                }
             }
-                
-            // }
-
         }
-
-        /* not implemented yet */
     }
-
-    /* return results */
 
     if(!pRes || pRes->resource_array.size()==0)
         return (HANDLE)-1;

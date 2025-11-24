@@ -98,6 +98,19 @@ LIBMTP_mtpdevice_t* getDevice(wcharstring name)
     return (*it).device;
 }
 
+LIBMTP_devicestorage_t* getStorage(LIBMTP_mtpdevice_t* device, wcharstring storageName) 
+{
+    LIBMTP_devicestorage_t* storage;
+    storage = device->storage;
+    if (storage == NULL) return NULL;
+    while (storage != NULL)
+    {
+        if(UTF8toUTF16(storage->StorageDescription) == storageName) return storage;
+        storage = storage->next;
+    }
+    return NULL;
+}
+
 pResources show_error_entry(wcharstring error) {
     pResources pRes = new tResources;
     pRes->nCount = 0;
@@ -157,7 +170,6 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
     for(int i = 0; i < numOfStarages; i++) {
         wName = UTF8toUTF16(storage->StorageDescription);
         size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
-        // output device entry as a folder
         memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
         pRes->resource_array[i].nFileSizeLow = 0;
