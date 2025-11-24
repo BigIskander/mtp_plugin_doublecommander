@@ -3,7 +3,7 @@ MTP plugin for Double Commander
 
 Wfx plugin for working with MTP (Media Transfer Protocol) devices
 
-Copyright (C) 2025 Iskander Sultanov
+Copyright (C) 2025 Iskander Sultanov (BigIskander@gmail.com)
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public

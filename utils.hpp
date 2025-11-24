@@ -3,7 +3,7 @@
     https://github.com/ivanenko/cloud_storage/blob/master/plugin_utils.h
 
 Copyright (C) 2019 Ivanenko Danil (ivanenko.danil@gmail.com)
-Copyright (C) 2025 Iskander Sultanov
+Copyright (C) 2025 Iskander Sultanov (BigIskander@gmail.com)
 
 This library is free software; you can redistribute it and/or
 modify it under the terms of the GNU Lesser General Public
