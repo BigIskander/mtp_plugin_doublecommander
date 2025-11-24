@@ -23,6 +23,7 @@ License along with this library; if not, write to the Free Software
 #ifndef _FSUTILS_HPP
 #define _FSUTILS_HPP
 
+#include <algorithm>
 #include "fsplugin.h"
 #include "utils.hpp"
 #include <libmtp.h>

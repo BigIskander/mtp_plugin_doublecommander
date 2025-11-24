@@ -25,6 +25,7 @@ License along with this library; if not, write to the Free Software
 
 #include "common.h"
 #include <codecvt>
+#include <locale>
 #include <vector>
 
 typedef struct {
