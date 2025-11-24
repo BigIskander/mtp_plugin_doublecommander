@@ -64,11 +64,6 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 
     LIBMTP_Init();
 
-#ifdef __APPLE__
-    // if macOS do something
-#endif
-    
-
     if(wPath.length() == 1) { // root folder of plugin
         err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
         
@@ -98,6 +93,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     for(int i = 0; i < numrawdevices; i++) {
                         newDevice = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[i]);
                         addDevice(newDevice);
+                    }
+                    if(availableDevices.size() == 0) {
+                        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
+                        pRes = show_error_entry((char*) "No MTP device found."); 
+                        break;
                     }
                     pRes =  showDevices(); 
                     break;
