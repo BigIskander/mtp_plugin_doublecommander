@@ -27,6 +27,11 @@ License along with this library; if not, write to the Free Software
 #include "fsutils.hpp"
 #include <libmtp.h>
 
+// measure performance
+/*
+#include <chrono>
+*/
+
 #define _plugin_name "MTP"
 
 int gPluginNumber;
@@ -87,6 +92,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     filterConnectedDevices();
                     for(int i = 0; i < numrawdevices; i++) {
                         newDevice = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[i]);
+                        if(newDevice == NULL) newDevice = LIBMTP_Open_Raw_Device(&rawdevices[i]);
                         addDevice(newDevice);
                     }
                     if(availableDevices.size() == 0) {
@@ -122,7 +128,15 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     int leaf = getPathLeaf(device, storage, internalPath);
                     LIBMTP_file_t *files;
                     files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
-                    // 
+                    // measure performance
+                    /*
+                    auto t1 = std::chrono::high_resolution_clock::now();
+                    
+                    auto t2 = std::chrono::high_resolution_clock::now();
+                    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) internalPath.data());
+                    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+                    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) int_to_wcharstring(ms_int.count()).data());
+                    */
                     
                     if (files != NULL) 
                     {
@@ -145,23 +159,21 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                         size_t str_size;
                         for (int i = 0; i < numOfEntries; i++)
                         {
-                            // if(internalPath == UTF8toUTF16("/Download")) 
-                            // {
-                            //     memcpy(pRes->resource_array[i].cFileName, "0", 2 * sizeof(char));
-                            //     UTF8toUTF16(file->filename);
-                            // } else {
-                                str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
-                                memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
-                            // }
+                            str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
+                            memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
                             if(file->filetype == LIBMTP_FILETYPE_FOLDER) pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
                             pRes->resource_array[i].nFileSizeLow = 0;
                             pRes->resource_array[i].nFileSizeHigh = 0;
-                            pRes->resource_array[i].ftCreationTime = get_now_time();
-                            pRes->resource_array[i].ftLastWriteTime = get_now_time();
-                            pRes->resource_array[i].ftLastAccessTime = get_now_time();
+                            pRes->resource_array[i].ftLastWriteTime = get_file_time(file->modificationdate);
                             file = file->next;
                         }
                     }
+                    // measure performance
+                    /*
+                    auto t3 = std::chrono::high_resolution_clock::now();
+                    auto ms_int2 = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2);
+                    gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) int_to_wcharstring(ms_int2.count()).data());
+                    */
                 } else {
                     pRes = show_error_entry((char*) "No such storage...");
                 }

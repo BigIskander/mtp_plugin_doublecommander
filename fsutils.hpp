@@ -72,15 +72,18 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
         .append(UTF8toUTF16(model));
     LIBMTP_FreeMemory(manufacturer);
     LIBMTP_FreeMemory(model);
-    wcharstring name = originalName;
+    wcharstring name = wcharstring((WCHAR*)u"").append(originalName);
     int i = 0;
     while (isDeviceNameTaken(name) && i < 1000)
     {
-        name = originalName.append((WCHAR*)u" [")
+        name.clear();
+        name = wcharstring((WCHAR*)u"").append(originalName)
+            .append((WCHAR*)u" [")
             .append(int_to_wcharstring(i))
             .append((WCHAR*)u"]");
         i++;
     }
+    originalName.clear();
     if(i >= 1000) return;
     AvailableDevice aDevice;
     aDevice.device = newDevice;
@@ -106,6 +109,8 @@ LIBMTP_mtpdevice_t* getDevice(wcharstring name)
 LIBMTP_devicestorage_t* getStorage(LIBMTP_mtpdevice_t* device, wcharstring storageName) 
 {
     LIBMTP_devicestorage_t* storage;
+    int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
+    if(ret != 0) return NULL;
     storage = device->storage;
     if (storage == NULL) return NULL;
     while (storage != NULL)

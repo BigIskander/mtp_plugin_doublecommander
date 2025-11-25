@@ -40,7 +40,19 @@ FILETIME get_now_time()
     time_t t2 = time(0);
     int64_t ft = (int64_t) t2 * 10000000 + 116444736000000000;
     FILETIME file_time;
-    file_time.dwLowDateTime = ft & 0xffff;
+    // deleted: &0xffff - it causes time shift to ~5 min
+    file_time.dwLowDateTime = ft;
+    file_time.dwHighDateTime = ft >> 32;
+    return file_time;
+}
+
+// add function converting time_t to FILETIME
+FILETIME get_file_time(time_t t)
+{
+    int64_t ft = (int64_t) t * 10000000 + 116444736000000000;
+    FILETIME file_time;
+    // 
+    file_time.dwLowDateTime = ft;
     file_time.dwHighDateTime = ft >> 32;
     return file_time;
 }
