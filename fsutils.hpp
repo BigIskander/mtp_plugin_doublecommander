@@ -254,8 +254,9 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
             str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
             memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
             if(file->filetype == LIBMTP_FILETYPE_FOLDER) pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-            // pRes->resource_array[i].nFileSizeLow = file->filesize;
-            // pRes->resource_array[i].nFileSizeHigh = file->filesize;
+            // convert from uint64_t to DWORD, ai answear, "uint64_t to DWORD" search query in google.com
+            pRes->resource_array[i].nFileSizeLow = static_cast<DWORD>(file->filesize & 0xFFFFFFFF);
+            pRes->resource_array[i].nFileSizeHigh = static_cast<DWORD>(file->filesize >> 32);
             pRes->resource_array[i].ftLastWriteTime = get_file_time(file->modificationdate);
             file = file->next;
         }
