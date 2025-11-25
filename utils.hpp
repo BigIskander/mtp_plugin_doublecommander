@@ -47,13 +47,15 @@ FILETIME get_now_time()
 
 std::string UTF16toUTF8(const WCHAR *p)
 {
-    std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> convert2;
+    // replaced codecvt_utf8 with codecvt_utf8_utf16 to fix an conversion error
+    std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert2;
     return convert2.to_bytes(std::u16string((char16_t*) p));
 }
 
 wcharstring UTF8toUTF16(const std::string &str)
 {
-    std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> convert2;
+    // replaced codecvt_utf8 with codecvt_utf8_utf16 to fix an conversion error
+    std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert2;
     std::u16string utf16 = convert2.from_bytes(str);
     return wcharstring((WCHAR*)utf16.data());
 }
