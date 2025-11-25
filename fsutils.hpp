@@ -65,9 +65,13 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     int ret = LIBMTP_Get_Storage(newDevice, LIBMTP_STORAGE_SORTBY_NOTSORTED);
     if(ret != 0) return;
     if(newDevice->storage == NULL) return;
-    wcharstring originalName = UTF8toUTF16(LIBMTP_Get_Manufacturername(newDevice))
+    char* manufacturer = LIBMTP_Get_Manufacturername(newDevice);
+    char* model = LIBMTP_Get_Modelname(newDevice);
+    wcharstring originalName = UTF8toUTF16(manufacturer)
         .append((WCHAR*)u" ")
-        .append(UTF8toUTF16(LIBMTP_Get_Modelname(newDevice)));
+        .append(UTF8toUTF16(model));
+    LIBMTP_FreeMemory(manufacturer);
+    LIBMTP_FreeMemory(model);
     wcharstring name = originalName;
     int i = 0;
     while (isDeviceNameTaken(name) && i < 1000)
@@ -82,6 +86,7 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     aDevice.device = newDevice;
     aDevice.name = name;
     availableDevices.push_back(aDevice);
+    // gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*)UTF8toUTF16("CONNECT /").append(name).data());
 }
 
 LIBMTP_mtpdevice_t* getDevice(wcharstring name) 
@@ -109,6 +114,52 @@ LIBMTP_devicestorage_t* getStorage(LIBMTP_mtpdevice_t* device, wcharstring stora
         storage = storage->next;
     }
     return NULL;
+}
+
+void getTopFolderName(wcharstring wPath, wcharstring& topFolderName, wcharstring& subPath) {
+    if(wPath.size() <= 1 || wPath.substr(0, 1).data() != UTF8toUTF16("/"))
+    {
+        topFolderName = (WCHAR*)u"";
+        subPath = (WCHAR*)u"";
+    } else {
+        int nPos = wPath.find((WCHAR*)u"/", 1);
+        if(nPos == std::string::npos) 
+        {
+            topFolderName = wPath.substr(1);
+            subPath = (WCHAR*)u"";
+        } else {
+            topFolderName = wPath.substr(1, nPos - 1);
+            subPath = wPath.substr(nPos);
+        }
+    }
+}
+
+int getPathLeaf(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, wcharstring internalPath)
+{
+    if(internalPath.substr(0, 1).data() != UTF8toUTF16("/")) return -1; // error incorrect path
+    int leaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
+    if(internalPath.size() == 1) return leaf;
+    wcharstring path = (WCHAR*)u"", topFolderName, subFolder = internalPath;
+    LIBMTP_file_t *files;
+    while (path != internalPath && path.size() <= internalPath.size())
+    {
+        files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
+        getTopFolderName(subFolder, topFolderName, subFolder);
+        while(files != NULL) 
+        {
+            if(topFolderName == UTF8toUTF16(files->filename)) 
+            {
+                if(files->filetype != LIBMTP_FILETYPE_FOLDER) return -1; // error it is not folder
+                path = path.append((WCHAR*)u"/").append(topFolderName);
+                if(path == internalPath) return files->item_id;
+                leaf = files->item_id;
+                subFolder = subFolder;
+                break;
+            }
+            files = files->next;
+        }
+    }
+    return -1; // error folder does not exists
 }
 
 pResources show_error_entry(wcharstring error) {

@@ -119,8 +119,9 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             } else {
                 storage = getStorage(device, storageName);
                 if(storage != NULL) {
+                    int leaf = getPathLeaf(device, storage, internalPath);
                     LIBMTP_file_t *files;
-                    files = LIBMTP_Get_Files_And_Folders(device, storage->id, LIBMTP_FILES_AND_FOLDERS_ROOT);
+                    files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
                     
                     if (files != NULL) 
                     {
@@ -201,10 +202,10 @@ void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
     strncpy(DefRootName, _plugin_name, maxlen);
 }
 
-// BOOL DCPCALL FsDisconnect(char* DisconnectRoot) 
-// {
-//     return true;
-// }
+BOOL DCPCALL FsDisconnect(char* DisconnectRoot) 
+{
+    return true;
+}
 
 // int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
 // {
