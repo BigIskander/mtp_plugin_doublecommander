@@ -203,37 +203,62 @@ pResources showDevices()
         str_size = (MAX_PATH > availableDevices[i].name.size()+1)? (availableDevices[i].name.size()+1): MAX_PATH;
         memcpy(pRes->resource_array[i].cFileName, availableDevices[i].name.data(), str_size * sizeof(WCHAR));
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-        pRes->resource_array[i].nFileSizeLow = 0;
-        pRes->resource_array[i].nFileSizeHigh = 0;
-        pRes->resource_array[i].ftCreationTime = get_now_time();
-        pRes->resource_array[i].ftLastWriteTime = get_now_time();
-        pRes->resource_array[i].ftLastAccessTime = get_now_time();
     }
     return pRes;
 }
 
 pResources showStorages(LIBMTP_mtpdevice_t* device) {
     LIBMTP_devicestorage_t *storage;
-    int numOfStarages = 0;
+    int numOfStorages = 0;
     for (storage = device->storage; storage != 0; storage = storage->next) {
-        numOfStarages++;
+        numOfStorages++;
     }
     pResources pRes = new tResources;
     pRes->nCount = 0;
-    pRes->resource_array.resize(numOfStarages);
+    pRes->resource_array.resize(numOfStorages);
     wcharstring wName;
     storage = device->storage;
-    for(int i = 0; i < numOfStarages; i++) {
+    for(int i = 0; i < numOfStorages; i++) {
         wName = UTF8toUTF16(storage->StorageDescription);
         size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
         memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-        pRes->resource_array[i].nFileSizeLow = 0;
-        pRes->resource_array[i].nFileSizeHigh = 0;
-        pRes->resource_array[i].ftCreationTime = get_now_time();
-        pRes->resource_array[i].ftLastWriteTime = get_now_time();
-        pRes->resource_array[i].ftLastAccessTime = get_now_time();
         storage = storage->next;
+    }
+    return pRes;
+}
+
+pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, int leaf) 
+{
+    pResources pRes;
+    LIBMTP_file_t *files;
+    files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
+    if (files != NULL) 
+    {
+        LIBMTP_file_t *file;
+        file = files;
+        int numOfEntries = 0;
+        while (file != NULL) 
+        {
+            numOfEntries++;
+            file = file->next;
+        }
+        pRes = new tResources;
+        pRes->nCount = 0;
+        pRes->resource_array.resize(numOfEntries);
+                                
+        file = files;
+        size_t str_size;
+        for (int i = 0; i < numOfEntries; i++)
+        {
+            str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
+            memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
+            if(file->filetype == LIBMTP_FILETYPE_FOLDER) pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+            // pRes->resource_array[i].nFileSizeLow = file->filesize;
+            // pRes->resource_array[i].nFileSizeHigh = file->filesize;
+            pRes->resource_array[i].ftLastWriteTime = get_file_time(file->modificationdate);
+            file = file->next;
+        }
     }
     return pRes;
 }
