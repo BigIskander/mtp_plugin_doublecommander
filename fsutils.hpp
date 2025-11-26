@@ -79,7 +79,8 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
         .append(UTF8toUTF16(model));
     LIBMTP_FreeMemory(manufacturer);
     LIBMTP_FreeMemory(model);
-    wcharstring name = wcharstring((WCHAR*)u"").append(originalName); // trick to copy value not reference
+    // trick to copy value not reference
+    wcharstring name = wcharstring((WCHAR*)u"").append(originalName); 
     int i = 0;
     while (isDeviceNameTaken(name) && i < 1000)
     {
@@ -327,8 +328,13 @@ pResources showDevices()
     size_t str_size;
     for(int i = 0; i < devicesCount; i++) 
     {
-        str_size = (MAX_PATH > availableDevices[i].name.size()+1)? (availableDevices[i].name.size()+1): MAX_PATH;
-        memcpy(pRes->resource_array[i].cFileName, availableDevices[i].name.data(), str_size * sizeof(WCHAR));
+        str_size = (MAX_PATH > availableDevices[i].name.size()+1) ? 
+            (availableDevices[i].name.size()+1): MAX_PATH;
+        memcpy(
+            pRes->resource_array[i].cFileName, 
+            availableDevices[i].name.data(), 
+            str_size * sizeof(WCHAR)
+        );
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
     }
     return pRes;
@@ -385,9 +391,15 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
         size_t str_size;
         for (int i = 0; i < numOfEntries; i++)
         {
-            str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
-            memcpy(pRes->resource_array[i].cFileName, UTF8toUTF16(file->filename).data(), str_size * sizeof(WCHAR));
-            if(file->filetype == LIBMTP_FILETYPE_FOLDER) pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+            str_size = (MAX_PATH > UTF8toUTF16(file->filename).size()+1)? 
+                (UTF8toUTF16(file->filename).size()+1): MAX_PATH;
+            memcpy(
+                pRes->resource_array[i].cFileName, 
+                UTF8toUTF16(file->filename).data(), 
+                str_size * sizeof(WCHAR)
+            );
+            if(file->filetype == LIBMTP_FILETYPE_FOLDER) 
+                pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
             // convert from uint64_t to DWORD, ai answear, "uint64_t to DWORD" search query in google.com
             pRes->resource_array[i].nFileSizeLow = static_cast<DWORD>(file->filesize & 0xFFFFFFFF);
             pRes->resource_array[i].nFileSizeHigh = static_cast<DWORD>(file->filesize >> 32);
@@ -401,7 +413,12 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
     return NULL;
 }
 
-void parsePath(wcharstring wPath, wcharstring& deviceName, wcharstring& storageName, wcharstring& internalPath)
+void parsePath(
+    wcharstring wPath, 
+    wcharstring& deviceName, 
+    wcharstring& storageName, 
+    wcharstring& internalPath
+)
 {
     if(wPath.length() == 1) 
     {
