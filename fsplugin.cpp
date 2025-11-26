@@ -146,6 +146,14 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
         device = getDevice(deviceName);
         
         if (device == NULL) {
+            gLogProc(
+                gPluginNumber, 
+                MSGTYPE_IMPORTANTERROR, 
+                (WCHAR*) wcharstring((WCHAR*)u"MTP device \"")
+                    .append(deviceName)
+                    .append((WCHAR*)u"\" not found.")
+                    .data()
+            );
             pRes = NULL;
         } else {
             LIBMTP_devicestorage_t *storage;
@@ -158,9 +166,31 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     if(getPathLeaf(device, storage, internalPath, leaf)) {
                         pRes = showFilesAndFolders(device, storage, leaf);
                     } else {
+                        gLogProc(
+                            gPluginNumber, 
+                            MSGTYPE_IMPORTANTERROR, 
+                            (WCHAR*) wcharstring((WCHAR*)u"MTP device \"")
+                                .append(deviceName)
+                                .append((WCHAR*)u"\" storage name \"")
+                                .append(storageName)
+                                .append((WCHAR*)u"\" not found.")
+                                .data()
+                        );
                         pRes = NULL;
                     }
                 } else {
+                    gLogProc(
+                        gPluginNumber, 
+                        MSGTYPE_IMPORTANTERROR, 
+                        (WCHAR*) wcharstring((WCHAR*)u"MTP device \"")
+                            .append(deviceName)
+                            .append((WCHAR*)u"\" storage name \"")
+                            .append(storageName)
+                            .append((WCHAR*)u"\" path \"")
+                            .append(internalPath)
+                            .append((WCHAR*)u"\" not found.")
+                            .data()
+                    );
                     pRes = NULL;
                 }
             }
