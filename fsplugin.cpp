@@ -65,20 +65,31 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
         switch(err) {
             case LIBMTP_ERROR_NO_DEVICE_ATTACHED:
                 {
+                    filterConnectedDevices(); // to remove disconnected devices from the list
                     gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
-                    pRes = show_error_entry((char*) "No MTP device found.");  
+                    pRes = NULL;
                     break;
                 }
             case LIBMTP_ERROR_CONNECTING:
                 {
                     gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: connection error.");
-                    pRes = show_error_entry((char*) "Libmtp: connection error.");
+                    pRes = NULL;
+                    gRequestProc(gPluginNumber, RT_MsgOK, 
+                        (WCHAR*)u"", 
+                        (WCHAR*)u"Libmtp: connection error.", 
+                        (WCHAR*)u"", 0
+                    );
                     break;
                 }
             case LIBMTP_ERROR_MEMORY_ALLOCATION:
                 {
                     gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: memory allocation error.");
-                    pRes = show_error_entry((char*) "Libmtp: memory allocation error.");
+                    pRes = NULL;
+                    gRequestProc(gPluginNumber, RT_MsgOK, 
+                        (WCHAR*)u"", 
+                        (WCHAR*)u"Libmtp: memory allocation error.", 
+                        (WCHAR*)u"", 0
+                    );
                     break;
                 }
             case LIBMTP_ERROR_NONE:
@@ -91,8 +102,8 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     }
                     LIBMTP_FreeMemory(rawdevices);
                     if(availableDevices.size() == 0) {
-                        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
-                        pRes = show_error_entry((char*) "No MTP device found."); 
+                        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device with storage found.");
+                        pRes = NULL; 
                         break;
                     }
                     pRes =  showDevices(); 
@@ -102,7 +113,12 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             default:
                 {
                     gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: unknown connection error.");
-                    pRes = show_error_entry((char*) "Libmtp: unknown connection error.");
+                    pRes = NULL;
+                    gRequestProc(gPluginNumber, RT_MsgOK, 
+                        (WCHAR*)u"", 
+                        (WCHAR*)u"Libmtp: unknown connection error.", 
+                        (WCHAR*)u"", 0
+                    );
                 }
         }
     } else {
@@ -112,7 +128,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
         device = getDevice(deviceName);
         
         if (device == NULL) {
-            pRes = show_error_entry((char*) "No device...");
+            pRes = NULL;
         } else {
             LIBMTP_devicestorage_t *storage;
             if(storageName == UTF8toUTF16("")) {
@@ -124,10 +140,10 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     if(getPathLeaf(device, storage, internalPath, leaf)) {
                         pRes = showFilesAndFolders(device, storage, leaf);
                     } else {
-                        pRes = show_error_entry((char*) "Incorrect path...");
+                        pRes = NULL;
                     }
                 } else {
-                    pRes = show_error_entry((char*) "No such storage...");
+                    pRes = NULL;
                 }
             }
         }
@@ -172,11 +188,6 @@ int DCPCALL FsFindClose(HANDLE Hdl)
 void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
 {
     strncpy(DefRootName, _plugin_name, maxlen);
-}
-
-BOOL DCPCALL FsDisconnect(char* DisconnectRoot) 
-{
-    return true;
 }
 
 // int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
