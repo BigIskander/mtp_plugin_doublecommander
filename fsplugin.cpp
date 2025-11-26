@@ -89,6 +89,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                         newDevice = LIBMTP_Open_Raw_Device_Uncached(&rawdevices[i]);
                         addDevice(newDevice);
                     }
+                    LIBMTP_FreeMemory(rawdevices);
                     if(availableDevices.size() == 0) {
                         gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device found.");
                         pRes = show_error_entry((char*) "No MTP device found."); 

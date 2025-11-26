@@ -28,10 +28,17 @@ License along with this library; if not, write to the Free Software
 #include "utils.hpp"
 #include <libmtp.h>
 
+struct PathElement
+{
+    wcharstring path;
+    uint32_t leaf;
+};
+
 struct AvailableDevice
 {
    LIBMTP_mtpdevice_t* device;
    wcharstring name;
+   std::vector<PathElement> leafCache;
 };
 
 std::vector<AvailableDevice> availableDevices;
@@ -140,6 +147,86 @@ void getTopFolderName(wcharstring wPath, wcharstring& topFolderName, wcharstring
     }
 }
 
+void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf) {
+    auto it = std::find_if(
+        availableDevices.begin(), 
+        availableDevices.end(), 
+        [device](const AvailableDevice& item) 
+        {
+            return item.device == device;
+        }
+    );
+    if(it == availableDevices.end()) return; // not found such device
+    PathElement cache;
+    cache.path = path;
+    cache.leaf = leaf;
+    (*it).leafCache.push_back(cache);
+}
+
+void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring path) {
+    auto it = std::find_if(
+        availableDevices.begin(), 
+        availableDevices.end(), 
+        [device](const AvailableDevice& item) 
+        {
+            return item.device == device;
+        }
+    );
+    if(it == availableDevices.end()) return; // not found such device
+    auto leafCache = (*it).leafCache;
+    leafCache.erase(std::remove_if(
+        leafCache.begin(),
+        leafCache.end(),
+        [path](const PathElement& item)
+        {
+            return item.path.substr(0, path.size()) == path;
+        }
+    ), leafCache.end());
+}
+
+bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& leaf) {
+    if(device == NULL) return false;
+    if(path.substr(0, 1) != (WCHAR*)u"/") return false;
+    auto it = std::find_if(
+        availableDevices.begin(), 
+        availableDevices.end(), 
+        [device](const AvailableDevice& item) 
+        {
+            return item.device == device;
+        }
+    );
+    if(it == availableDevices.end()) return false; // not found such device
+    auto cache = (*it).leafCache;
+    auto cacheItem = std::find_if(
+        cache.begin(), 
+        cache.end(), 
+        [path](const PathElement& item) 
+        {
+            return item.path == path;
+        }
+    );
+    if(cacheItem == cache.end()) return false; // path not cached
+    leaf = (*cacheItem).leaf;
+    // check if path exists and name matches
+    LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
+    if(file == NULL) return false;
+    if(file->filetype != LIBMTP_FILETYPE_FOLDER) {
+        LIBMTP_destroy_file_t(file);
+        removeLeafsFromCache(device, path);
+        return false;
+    }
+    wcharstring folderName;
+    size_t nPos = path.find_last_of((WCHAR*)u"/");
+    if(path.substr(nPos + 1) != UTF8toUTF16(file->filename)) 
+    {
+        LIBMTP_destroy_file_t(file);
+        removeLeafsFromCache(device, path);
+        return false;
+    }
+    LIBMTP_destroy_file_t(file);
+    return true;
+}
+
 bool getPathLeaf(
     LIBMTP_mtpdevice_t* device, 
     LIBMTP_devicestorage_t* storage, 
@@ -161,7 +248,11 @@ bool getPathLeaf(
         {
             if(topFolderName == UTF8toUTF16(files->filename)) 
             {
-                if(files->filetype != LIBMTP_FILETYPE_FOLDER) return false; // error it is not folder
+                if(files->filetype != LIBMTP_FILETYPE_FOLDER) 
+                {
+                    LIBMTP_destroy_file_t(files);
+                    return false; // error it is not folder
+                }
                 path = path.append((WCHAR*)u"/").append(topFolderName);
                 leaf = files->item_id;
                 if(path == internalPath) 
