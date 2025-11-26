@@ -159,6 +159,15 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             LIBMTP_devicestorage_t *storage;
             if(storageName == UTF8toUTF16("")) {
                 pRes = showStorages(device);
+                if(pRes == NULL)
+                    gLogProc(
+                        gPluginNumber, 
+                        MSGTYPE_IMPORTANTERROR, 
+                        (WCHAR*) wcharstring((WCHAR*)u"MTP device \"")
+                            .append(deviceName)
+                            .append((WCHAR*)u"\" no storage found.")
+                            .data()
+                    );
             } else {
                 storage = getStorage(device, storageName);
                 if(storage != NULL) {
@@ -173,9 +182,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                                 .append(deviceName)
                                 .append((WCHAR*)u"\" storage name \"")
                                 .append(storageName)
+                                .append((WCHAR*)u"\" folder with path \"")
+                                .append(internalPath)
                                 .append((WCHAR*)u"\" not found.")
                                 .data()
-                        );
+                        ); 
                         pRes = NULL;
                     }
                 } else {
@@ -186,8 +197,6 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                             .append(deviceName)
                             .append((WCHAR*)u"\" storage name \"")
                             .append(storageName)
-                            .append((WCHAR*)u"\" path \"")
-                            .append(internalPath)
                             .append((WCHAR*)u"\" not found.")
                             .data()
                     );
