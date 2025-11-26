@@ -152,7 +152,7 @@ bool getPathLeaf(
     leaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
     if(internalPath.size() == 1) return true; // root folder
     wcharstring path = (WCHAR*)u"", topFolderName, subFolder = internalPath;
-    LIBMTP_file_t *files;
+    LIBMTP_file_t *files, *tmp;
     while (path != internalPath && path.size() <= internalPath.size())
     {
         files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
@@ -164,11 +164,17 @@ bool getPathLeaf(
                 if(files->filetype != LIBMTP_FILETYPE_FOLDER) return false; // error it is not folder
                 path = path.append((WCHAR*)u"/").append(topFolderName);
                 leaf = files->item_id;
-                if(path == internalPath) return true; // leaf found
+                if(path == internalPath) 
+                {
+                    LIBMTP_destroy_file_t(files);
+                    return true; // leaf found
+                }
                 subFolder = subFolder;
                 break;
             }
+            tmp = files;
             files = files->next;
+            LIBMTP_destroy_file_t(tmp);
         }
     }
     return false; // error folder does not exists
@@ -244,8 +250,7 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
 pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, uint32_t leaf) 
 {
     if(device == NULL || storage == NULL) return NULL;
-    pResources pRes = NULL;
-    LIBMTP_file_t *files;
+    LIBMTP_file_t *files, *tmp;
     files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
     if (files != NULL) 
     {
@@ -258,7 +263,7 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
             file = file->next;
         }
         if(numOfEntries == 0) return NULL;
-        pRes = new tResources;
+        pResources pRes = new tResources;
         pRes->nCount = 0;
         pRes->resource_array.resize(numOfEntries);
                                 
@@ -273,10 +278,13 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
             pRes->resource_array[i].nFileSizeLow = static_cast<DWORD>(file->filesize & 0xFFFFFFFF);
             pRes->resource_array[i].nFileSizeHigh = static_cast<DWORD>(file->filesize >> 32);
             pRes->resource_array[i].ftLastWriteTime = get_file_time(file->modificationdate);
+            tmp = file;
             file = file->next;
+            LIBMTP_destroy_file_t(tmp);
         }
+        return pRes;
     }
-    return pRes;
+    return NULL;
 }
 
 void parsePath(wcharstring wPath, wcharstring& deviceName, wcharstring& storageName, wcharstring& internalPath)
