@@ -119,8 +119,12 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             } else {
                 storage = getStorage(device, storageName);
                 if(storage != NULL) {
-                    int leaf = getPathLeaf(device, storage, internalPath);
-                    pRes = showFilesAndFolders(device, storage, leaf);
+                    uint32_t leaf;
+                    if(getPathLeaf(device, storage, internalPath, leaf)) {
+                        pRes = showFilesAndFolders(device, storage, leaf);
+                    } else {
+                        pRes = show_error_entry((char*) "Incorrect path...");
+                    }
                 } else {
                     pRes = show_error_entry((char*) "No such storage...");
                 }
