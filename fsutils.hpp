@@ -79,7 +79,7 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
         .append(UTF8toUTF16(model));
     LIBMTP_FreeMemory(manufacturer);
     LIBMTP_FreeMemory(model);
-    wcharstring name = wcharstring((WCHAR*)u"").append(originalName);
+    wcharstring name = wcharstring((WCHAR*)u"").append(originalName); // trick to copy value not reference
     int i = 0;
     while (isDeviceNameTaken(name) && i < 1000)
     {
@@ -148,6 +148,9 @@ void getTopFolderName(wcharstring wPath, wcharstring& topFolderName, wcharstring
 }
 
 void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf) {
+    if(device == NULL) return;
+    if(path.substr(0, 1) != (WCHAR*)u"/") return;
+    if(path.size() == 1) return;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -163,7 +166,7 @@ void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf)
     (*it).leafCache.push_back(cache);
 }
 
-void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring path) {
+void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -173,20 +176,21 @@ void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring path) {
         }
     );
     if(it == availableDevices.end()) return; // not found such device
-    auto leafCache = (*it).leafCache;
-    leafCache.erase(std::remove_if(
-        leafCache.begin(),
-        leafCache.end(),
-        [path](const PathElement& item)
+    auto leafCache = &(*it).leafCache;
+    leafCache->erase(std::remove_if(
+        leafCache->begin(),
+        leafCache->end(),
+        [rPath](const PathElement& item)
         {
-            return item.path.substr(0, path.size()) == path;
+            return item.path.substr(0, rPath.size()) == rPath;
         }
-    ), leafCache.end());
+    ), leafCache->end());
 }
 
 bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& leaf) {
     if(device == NULL) return false;
     if(path.substr(0, 1) != (WCHAR*)u"/") return false;
+    if(path.size() == 1) return false;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -196,16 +200,16 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
         }
     );
     if(it == availableDevices.end()) return false; // not found such device
-    auto cache = (*it).leafCache;
+    auto cache = &(*it).leafCache;
     auto cacheItem = std::find_if(
-        cache.begin(), 
-        cache.end(), 
+        cache->begin(), 
+        cache->end(), 
         [path](const PathElement& item) 
         {
             return item.path == path;
         }
     );
-    if(cacheItem == cache.end()) return false; // path not cached
+    if(cacheItem == cache->end()) return false; // path not cached
     leaf = (*cacheItem).leaf;
     // check if path exists and name matches
     LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
@@ -239,34 +243,53 @@ bool getPathLeaf(
     leaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
     if(internalPath.size() == 1) return true; // root folder
     wcharstring path = (WCHAR*)u"", topFolderName, subFolder = internalPath;
-    LIBMTP_file_t *files, *tmp;
+    LIBMTP_file_t *files = NULL, *tmp;
+    bool match;
+    uint32_t tmpLeaf;
     while (path != internalPath && path.size() <= internalPath.size())
     {
-        files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
+        match = false;
         getTopFolderName(subFolder, topFolderName, subFolder);
+        path = path.append((WCHAR*)u"/").append(topFolderName);
+        // check cache
+        if(getLeafFromCache(device, path, tmpLeaf))
+        {
+            leaf = tmpLeaf;
+            if(path == internalPath) 
+            {
+                if(files != NULL) LIBMTP_destroy_file_t(files);
+                return true;
+            }
+            continue;
+        }
+        // check files and folders in device if cache not found
+        files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
         while(files != NULL) 
         {
             if(topFolderName == UTF8toUTF16(files->filename)) 
             {
+                match = true;
                 if(files->filetype != LIBMTP_FILETYPE_FOLDER) 
                 {
                     LIBMTP_destroy_file_t(files);
                     return false; // error it is not folder
                 }
-                path = path.append((WCHAR*)u"/").append(topFolderName);
                 leaf = files->item_id;
+                addLeafToCache(device, path, leaf);
                 if(path == internalPath) 
                 {
                     LIBMTP_destroy_file_t(files);
                     return true; // leaf found
                 }
                 subFolder = subFolder;
+                LIBMTP_destroy_file_t(files);
                 break;
             }
             tmp = files;
             files = files->next;
             LIBMTP_destroy_file_t(tmp);
         }
+        if(!match) return false;
     }
     return false; // error folder does not exists
 }
