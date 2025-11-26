@@ -97,7 +97,6 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     aDevice.device = newDevice;
     aDevice.name = name;
     availableDevices.push_back(aDevice);
-    // gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*)UTF8toUTF16("CONNECT /").append(name).data());
 }
 
 LIBMTP_mtpdevice_t* getDevice(wcharstring name) 
@@ -295,29 +294,6 @@ bool getPathLeaf(
     return false; // error folder does not exists
 }
 
-pResources show_error_entry(wcharstring error) {
-    pResources pRes = new tResources;
-    pRes->nCount = 0;
-    pRes->resource_array.resize(1);
-
-    wcharstring wName = error;
-    size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
-        
-    // output error message as unknown file entry
-    memcpy(pRes->resource_array[0].cFileName, wName.data(), sizeof(WCHAR) * str_size);
-    pRes->resource_array[0].nFileSizeLow = 0;
-    pRes->resource_array[0].nFileSizeHigh = 0;
-    pRes->resource_array[0].ftCreationTime = get_now_time();
-    pRes->resource_array[0].ftLastWriteTime = get_now_time();
-    pRes->resource_array[0].ftLastAccessTime = get_now_time();
-    return pRes;
-} 
-
-pResources show_error_entry(char* error) 
-{
-    return show_error_entry(UTF8toUTF16(error));
-}
-
 pResources showDevices() 
 {
     int devicesCount = availableDevices.size();
@@ -367,7 +343,9 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
     return pRes;
 }
 
-pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, uint32_t leaf) 
+pResources showFilesAndFolders(
+    LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, uint32_t leaf
+) 
 {
     if(device == NULL || storage == NULL) return NULL;
     LIBMTP_file_t *files, *tmp;
@@ -400,7 +378,8 @@ pResources showFilesAndFolders(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_
             );
             if(file->filetype == LIBMTP_FILETYPE_FOLDER) 
                 pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-            // convert from uint64_t to DWORD, ai answear, "uint64_t to DWORD" search query in google.com
+            // convert from uint64_t to DWORD, 
+            // ai answear, "uint64_t to DWORD" search query in google.com
             pRes->resource_array[i].nFileSizeLow = static_cast<DWORD>(file->filesize & 0xFFFFFFFF);
             pRes->resource_array[i].nFileSizeHigh = static_cast<DWORD>(file->filesize >> 32);
             pRes->resource_array[i].ftLastWriteTime = get_file_time(file->modificationdate);

@@ -35,7 +35,9 @@ tLogProcW gLogProc = NULL;
 tRequestProcW gRequestProc = NULL;
 tCryptProcW gCryptProc = NULL;
 
-int DCPCALL FsInitW(int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogProc, tRequestProcW pRequestProc) 
+int DCPCALL FsInitW(
+    int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogProc, tRequestProcW pRequestProc
+) 
 {
     gProgressProc = pProgressProc;
     gLogProc = pLogProc;
@@ -72,7 +74,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_CONNECTING:
                 {
-                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: connection error.");
+                    gLogProc(
+                        gPluginNumber, 
+                        MSGTYPE_IMPORTANTERROR, 
+                        (WCHAR*) u"Libmtp: connection error."
+                    );
                     pRes = NULL;
                     gRequestProc(gPluginNumber, RT_MsgOK, 
                         (WCHAR*)u"", 
@@ -83,7 +89,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_MEMORY_ALLOCATION:
                 {
-                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: memory allocation error.");
+                    gLogProc(
+                        gPluginNumber, 
+                        MSGTYPE_IMPORTANTERROR, 
+                        (WCHAR*) u"Libmtp: memory allocation error."
+                    );
                     pRes = NULL;
                     gRequestProc(gPluginNumber, RT_MsgOK, 
                         (WCHAR*)u"", 
@@ -102,7 +112,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     }
                     LIBMTP_FreeMemory(rawdevices);
                     if(availableDevices.size() == 0) {
-                        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*) u"No MTP device with storage found.");
+                        gLogProc(
+                            gPluginNumber, 
+                            MSGTYPE_DETAILS, 
+                            (WCHAR*) u"No MTP device with storage found."
+                        );
                         pRes = NULL; 
                         break;
                     }
@@ -112,7 +126,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
             case LIBMTP_ERROR_GENERAL:
             default:
                 {
-                    gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*) u"Libmtp: unknown connection error.");
+                    gLogProc(
+                        gPluginNumber, 
+                        MSGTYPE_IMPORTANTERROR, 
+                        (WCHAR*) u"Libmtp: unknown connection error."
+                    );
                     pRes = NULL;
                     gRequestProc(gPluginNumber, RT_MsgOK, 
                         (WCHAR*)u"", 
@@ -170,18 +188,18 @@ BOOL DCPCALL FsFindNextW(HANDLE Hdl, WIN32_FIND_DATAW *FindData)
         pRes->nCount++;
         return true;
     } else {
+        if(pRes != NULL)
+        {
+            pRes->resource_array.clear();
+            delete pRes;
+        }
         return false;
     }
 }
 
 int DCPCALL FsFindClose(HANDLE Hdl) 
 {
-    pResources pRes = (pResources) Hdl;
-    if(pRes){
-        pRes->resource_array.clear();
-        delete pRes;
-    }
-
+    // this function is not even called
     return 0;
 }
 
