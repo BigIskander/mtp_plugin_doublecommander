@@ -28,6 +28,13 @@ License along with this library; if not, write to the Free Software
 #include "utils.hpp"
 #include <libmtp.h>
 
+// Doublecommander API callback functions
+int gPluginNumber;
+tProgressProcW gProgressProc = NULL;
+tLogProcW gLogProc = NULL;
+tRequestProcW gRequestProc = NULL;
+tCryptProcW gCryptProc = NULL;
+
 struct PathElement
 {
     wcharstring path;
@@ -235,7 +242,8 @@ bool getPathLeaf(
     LIBMTP_mtpdevice_t* device, 
     LIBMTP_devicestorage_t* storage, 
     wcharstring internalPath, 
-    uint32_t& leaf
+    uint32_t& leaf,
+    bool isFolder = true
 )
 {
     if(device == NULL || storage == NULL) return false; // no device or no storage specified
@@ -251,16 +259,19 @@ bool getPathLeaf(
         match = false;
         getTopFolderName(subFolder, topFolderName, subFolder);
         path = path.append((WCHAR*)u"/").append(topFolderName);
-        // check cache
-        if(getLeafFromCache(device, path, tmpLeaf))
+        if(isFolder == true || (isFolder == false && subFolder != (WCHAR*)u""))
         {
-            leaf = tmpLeaf;
-            if(path == internalPath) 
+            // check cache
+            if(getLeafFromCache(device, path, tmpLeaf))
             {
-                if(files != NULL) LIBMTP_destroy_file_t(files);
-                return true;
+                leaf = tmpLeaf;
+                if(path == internalPath) 
+                {
+                    if(files != NULL) LIBMTP_destroy_file_t(files);
+                    return true;
+                }
+                continue;
             }
-            continue;
         }
         // check files and folders in device if cache not found
         files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
@@ -271,8 +282,18 @@ bool getPathLeaf(
                 match = true;
                 if(files->filetype != LIBMTP_FILETYPE_FOLDER) 
                 {
+                    if(isFolder == false)
+                    {
+                        if(path == internalPath)
+                        {
+                            leaf = files->item_id;
+                            LIBMTP_destroy_file_t(files);
+                            return true;
+                        }
+                    }
                     LIBMTP_destroy_file_t(files);
-                    return false; // error it is not folder
+                    // error it is not folder and not file we are looking for
+                    return false; 
                 }
                 leaf = files->item_id;
                 addLeafToCache(device, path, leaf);
@@ -425,6 +446,23 @@ void parsePath(
     }
     storageName = wPath.substr(nPos + 1, nPos2 - nPos - 1);
     internalPath = wPath.substr(nPos2);
+}
+
+struct copyFromTo {
+    WCHAR* RemoteName;
+    WCHAR* LocalName;
+};
+
+// progress function
+int progressFunc(const uint64_t sent, const uint64_t total, const void *pData)
+{
+    gProgressProc(
+        gPluginNumber, 
+        static_cast<const copyFromTo*>(pData)->RemoteName, 
+        static_cast<const copyFromTo*>(pData)->LocalName, 
+        (sent*100)/total
+    );
+    return 0;
 }
 
 #endif

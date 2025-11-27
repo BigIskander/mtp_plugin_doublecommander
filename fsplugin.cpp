@@ -29,12 +29,6 @@ License along with this library; if not, write to the Free Software
 
 #define _plugin_name "MTP"
 
-int gPluginNumber;
-tProgressProcW gProgressProc = NULL;
-tLogProcW gLogProc = NULL;
-tRequestProcW gRequestProc = NULL;
-tCryptProcW gCryptProc = NULL;
-
 int DCPCALL FsInitW(
     int PluginNr, tProgressProcW pProgressProc, tLogProcW pLogProc, tRequestProcW pRequestProc
 ) 
@@ -245,6 +239,53 @@ int DCPCALL FsFindClose(HANDLE Hdl)
 void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
 {
     strncpy(DefRootName, _plugin_name, maxlen);
+}
+
+int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, RemoteInfoStruct* ri)
+{
+    if(CopyFlags & FS_COPYFLAGS_RESUME) // resume copy not supported
+        return FS_FILE_NOTSUPPORTED;
+
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no copy file if it is root folder of plugin or if it is root folder of device (not supported)
+    if(wPath == (WCHAR*)u"/")
+        return FS_FILE_NOTSUPPORTED;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return FS_FILE_NOTSUPPORTED;
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName).append((WCHAR*)u"/").append(storageName))
+        return FS_FILE_NOTSUPPORTED;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return FS_FILE_NOTFOUND;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return FS_FILE_NOTFOUND;
+
+    uint32_t leaf;
+    if(getPathLeaf(device, storage, internalPath, leaf, false))
+    {
+        // TODO: check if file already exists in destination path
+        copyFromTo pData;
+        pData.RemoteName = RemoteName;
+        pData.LocalName = LocalName;
+        gProgressProc(gPluginNumber, RemoteName, LocalName, 0);
+        if (
+            LIBMTP_Get_File_To_File(
+                device, leaf, UTF16toUTF8(LocalName).data(), progressFunc, &pData
+            ) != 0
+        ) {
+            return FS_FILE_READERROR; // or maybe FS_FILE_WRITEERROR
+        }
+        gProgressProc(gPluginNumber, RemoteName, LocalName, 100);
+        return FS_FILE_OK;
+    }
+    
+    return FS_FILE_NOTFOUND;
 }
 
 // int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
