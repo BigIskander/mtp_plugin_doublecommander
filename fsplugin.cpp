@@ -258,6 +258,11 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(wPath == wcharstring((WCHAR*)u"/").append(deviceName).append((WCHAR*)u"/").append(storageName))
         return FS_FILE_NOTSUPPORTED;
 
+    // do not copy if file exists and no overwrite flag is set
+    BOOL isFileExists = file_exists(UTF16toUTF8(LocalName));
+    if(isFileExists && !(CopyFlags & FS_COPYFLAGS_OVERWRITE) )
+        return FS_FILE_EXISTS;
+
     LIBMTP_mtpdevice_t* device = getDevice(deviceName);
     if(device == NULL)
         return FS_FILE_NOTFOUND;
@@ -269,10 +274,9 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     uint32_t leaf;
     if(getPathLeaf(device, storage, internalPath, leaf, false))
     {
-        // TODO: check if file already exists in destination path
         copyFromTo pData;
-        pData.RemoteName = RemoteName;
-        pData.LocalName = LocalName;
+        pData.From = RemoteName;
+        pData.To = LocalName;
         gProgressProc(gPluginNumber, RemoteName, LocalName, 0);
         if (
             LIBMTP_Get_File_To_File(

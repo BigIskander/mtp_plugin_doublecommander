@@ -27,6 +27,7 @@ License along with this library; if not, write to the Free Software
 #include <codecvt>
 #include <locale>
 #include <vector>
+#include <sys/stat.h>
 
 typedef struct {
     int nCount;
@@ -70,6 +71,12 @@ wcharstring UTF8toUTF16(const std::string &str)
     std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert2;
     std::u16string utf16 = convert2.from_bytes(str);
     return wcharstring((WCHAR*)utf16.data());
+}
+
+BOOL file_exists(const std::string& filename)
+{
+    struct stat buf;
+    return stat(filename.c_str(), &buf) == 0;
 }
 
 // add function to convert int to wcharstring

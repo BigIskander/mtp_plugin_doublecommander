@@ -449,8 +449,8 @@ void parsePath(
 }
 
 struct copyFromTo {
-    WCHAR* RemoteName;
-    WCHAR* LocalName;
+    WCHAR* From;
+    WCHAR* To;
 };
 
 // progress function
@@ -458,8 +458,8 @@ int progressFunc(const uint64_t sent, const uint64_t total, const void *pData)
 {
     gProgressProc(
         gPluginNumber, 
-        static_cast<const copyFromTo*>(pData)->RemoteName, 
-        static_cast<const copyFromTo*>(pData)->LocalName, 
+        static_cast<const copyFromTo*>(pData)->From, 
+        static_cast<const copyFromTo*>(pData)->To, 
         (sent*100)/total
     );
     return 0;
