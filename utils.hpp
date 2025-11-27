@@ -79,6 +79,15 @@ BOOL file_exists(const std::string& filename)
     return stat(filename.c_str(), &buf) == 0;
 }
 
+// add function to gel local file size
+BOOL get_file_size(const std::string& filename, uint64_t& fileSize)
+{
+    struct stat buf;
+    if(stat(filename.c_str(), &buf) != 0) return false;
+    fileSize = buf.st_size;
+    return true;
+}
+
 // add function to convert int to wcharstring
 wcharstring int_to_wcharstring(int num) 
 {

@@ -448,6 +448,18 @@ void parsePath(
     internalPath = wPath.substr(nPos2);
 }
 
+void getFolderPath(wcharstring wPath, wcharstring& folderPath)
+{
+    size_t nPos = wPath.find_last_of((WCHAR*)u"/");
+    folderPath = wPath.substr(0, nPos);
+}
+
+void getFileName(wcharstring wPath, wcharstring& fileName)
+{
+    size_t nPos = wPath.find_last_of((WCHAR*)u"/");
+    fileName = wPath.substr(nPos + 1);
+}
+
 struct copyFromTo {
     WCHAR* From;
     WCHAR* To;

@@ -26,6 +26,7 @@ License along with this library; if not, write to the Free Software
 #include "utils.hpp"
 #include "fsutils.hpp"
 #include <libmtp.h>
+#include "pathutils.h"
 
 #define _plugin_name "MTP"
 
@@ -271,25 +272,111 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(storage == NULL)
         return FS_FILE_NOTFOUND;
 
+    if(gProgressProc(gPluginNumber, RemoteName, LocalName, 0) != 0) 
+            return FS_FILE_USERABORT;
+
     uint32_t leaf;
     if(getPathLeaf(device, storage, internalPath, leaf, false))
     {
         copyFromTo pData;
         pData.From = RemoteName;
         pData.To = LocalName;
-        gProgressProc(gPluginNumber, RemoteName, LocalName, 0);
         if (
             LIBMTP_Get_File_To_File(
                 device, leaf, UTF16toUTF8(LocalName).data(), progressFunc, &pData
             ) != 0
         ) {
-            return FS_FILE_READERROR; // or maybe FS_FILE_WRITEERROR
+            return FS_FILE_READERROR;
         }
         gProgressProc(gPluginNumber, RemoteName, LocalName, 100);
         return FS_FILE_OK;
     }
     
     return FS_FILE_NOTFOUND;
+}
+
+int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
+    if (CopyFlags & FS_COPYFLAGS_RESUME)
+        return FS_FILE_NOTSUPPORTED;
+
+    // this hint is never sent
+    if(((CopyFlags & FS_COPYFLAGS_EXISTS_SAMECASE) | (CopyFlags & FS_COPYFLAGS_EXISTS_DIFFERENTCASE)) 
+            & !(CopyFlags & FS_COPYFLAGS_OVERWRITE))  
+        return FS_FILE_EXISTS;
+    
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath, folderPath, fileName;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no copy file to root folder of plugin or to root folder of device (not supported)
+    getFolderPath(wPath, folderPath);
+    if(folderPath == (WCHAR*)u"/")
+        return FS_FILE_NOTSUPPORTED;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(folderPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return FS_FILE_NOTSUPPORTED;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return FS_FILE_WRITEERROR;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return FS_FILE_WRITEERROR;
+
+    getFolderPath(internalPath, folderPath);
+
+    uint32_t folderLeaf;
+    if(!getPathLeaf(device, storage, folderPath, folderLeaf))
+        return FS_FILE_WRITEERROR;
+
+    uint64_t fileSize;
+    if(!get_file_size(UTF16toUTF8(LocalName), fileSize))
+        return FS_FILE_READERROR;
+    
+    getFileName(internalPath, fileName);
+
+    if(gProgressProc(gPluginNumber, LocalName, RemoteName, 0) != 0) 
+        return FS_FILE_USERABORT;
+
+    // check if file already exists
+    uint32_t leaf;
+    if(getPathLeaf(device, storage, internalPath, leaf, false)) 
+    {
+        if(!(CopyFlags & FS_COPYFLAGS_OVERWRITE))
+        {
+            return FS_FILE_EXISTS;
+        } else {
+            // delete already existing file (to replace with new one)
+            if(LIBMTP_Delete_Object(device, leaf)) 
+            {
+                return FS_FILE_WRITEERROR;
+            }
+        }
+    }
+
+    LIBMTP_file_t *genfile = LIBMTP_new_file_t();
+    genfile->filesize = fileSize;
+    genfile->filename = strdup(UTF16toUTF8(fileName.data()).data());
+    genfile->filetype = find_filetype(UTF16toUTF8(fileName.data()).data());
+    genfile->parent_id = folderLeaf;
+    genfile->storage_id = storage->id;
+
+    copyFromTo pData;
+    pData.From = LocalName;
+    pData.To = RemoteName;
+
+    if (
+        LIBMTP_Send_File_From_File(
+            device, UTF16toUTF8(LocalName).data(), genfile, progressFunc, &pData
+        ) !=0
+    ) {
+        LIBMTP_destroy_file_t(genfile);
+        return FS_FILE_WRITEERROR;
+    }
+
+    LIBMTP_destroy_file_t(genfile);   
+    gProgressProc(gPluginNumber, LocalName, RemoteName, 100); 
+    return FS_FILE_OK;
 }
 
 // int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
