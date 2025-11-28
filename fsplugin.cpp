@@ -479,28 +479,72 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         }
     }
 
-    // /.
-    // /..
-    // //
+    // no copy or move folder
+    if(isOldFolder)
+        return FS_FILE_NOTSUPPORTED; // or some other error
+        
+    LIBMTP_devicestorage_t* storageNew;
+    if(storageNameNew == storageNameOld)
+    {
+        storageNew = storageOld;
+    } else {
+        storageNew = getStorage(deviceOld, storageNameNew);
+        if(storageNew == NULL)
+            return FS_FILE_WRITEERROR;
+    }
 
-    // copy or move file
-    wcharstring internalFolderPathNew;
-    getFolderPath(internalPathNew, internalFolderPathNew);
-    
-    uint32_t leaf;
-    // getPathLeaf()
+    // check if file or folder with destination path already exists
+    bool isNewExists = false;
+    uint32_t leafNew;
+    if(getPathLeaf(deviceOld, storageNew, internalPathNew, leafNew))
+        isNewExists = true;
+    else if(getPathLeaf(deviceOld, storageNew, internalPathNew, leafNew, false))
+        isNewExists = true;
 
-    /* not implemented yet */
-    // LIBMTP_Move_Object(LIBMTP_mtpdevice_t *device,
-	// 	       uint32_t object_id,
-	// 	       uint32_t storage_id,
-	// 	       uint32_t parent_id)
-    // LIBMTP_Move_Object();
+    if(isNewExists & !OverWrite)
+        return FS_FILE_EXISTS;
+
+    wcharstring internalParentNew;
+    getFolderPath(internalPathNew, internalParentNew);
+
+    uint32_t parentLeafNew;
+    if(!getPathLeaf(deviceOld, storageOld, internalParentNew, parentLeafNew))
+        return FS_FILE_WRITEERROR;
+
+    if(isNewExists & OverWrite)
+    {
+        // delete already existing file (to replace with new one)
+        if(LIBMTP_Delete_Object(deviceOld, leafNew)) 
+        {
+            return FS_FILE_WRITEERROR;
+        }
+    }
+
+    // move or copy the file
+    if(Move)
+    {
+        if(
+            LIBMTP_Move_Object(
+                deviceOld, leafOld, storageOld->id, parentLeafNew
+            ) == 0
+        ) {
+            return FS_FILE_OK;
+        }
+        return FS_FILE_WRITEERROR;
+    } else {
+        if(
+            LIBMTP_Copy_Object(
+                deviceOld, leafOld, storageOld->id, parentLeafNew
+            ) == 0
+        ) {
+            return FS_FILE_OK;
+        }
+        return FS_FILE_WRITEERROR;
+    }
     
     return FS_FILE_OK;
 }
 
-// https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6972 // move object
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L7584 // create folder
