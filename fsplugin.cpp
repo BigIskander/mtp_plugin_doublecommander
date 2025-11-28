@@ -511,6 +511,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(!getPathLeaf(deviceOld, storageOld, internalParentNew, parentLeafNew))
         return FS_FILE_WRITEERROR;
 
+    if(gProgressProc(gPluginNumber, OldName, NewName, 0) != 0) 
+        return FS_FILE_USERABORT;
+
     if(isNewExists & OverWrite)
     {
         // delete already existing file (to replace with new one)
@@ -528,6 +531,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageOld->id, parentLeafNew
             ) == 0
         ) {
+            gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         }
         return FS_FILE_WRITEERROR;
@@ -537,6 +541,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageOld->id, parentLeafNew
             ) == 0
         ) {
+            gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         }
         return FS_FILE_WRITEERROR;
