@@ -394,8 +394,8 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
     parsePath(wPathOld, deviceNameOld, storageNameOld, internalPathOld);
     parsePath(wPathNew, deviceNameNew, storageNameNew, internalPathNew);
-    getFolderPath(internalPathOld, folderPathOld);
-    getFolderPath(internalPathNew, folderPathNew);
+    getFolderPath(wPathOld, folderPathOld);
+    getFolderPath(wPathNew, folderPathNew);
 
     // move or copy directly from one device to another not supported
     if(deviceNameNew != deviceNameOld)
@@ -426,7 +426,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         // Just rename it
         wcharstring fileNameNew;
         getFileName(wPathNew, fileNameNew);
-        /* TODO: add regex check (no special characters allowed) */
         if(fileNameNew == (WCHAR*)u"") // no empty name
             return FS_FILE_WRITEERROR;
 
@@ -474,8 +473,16 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 LIBMTP_FreeMemory(file);
                 return FS_FILE_WRITEERROR;
             }
+            return FS_FILE_NOTFOUND;
         }
     }
+
+    // /.
+    // /..
+    // //
+
+    // copy or move file
+
 
     /* not implemented yet */
     // LIBMTP_Move_Object(LIBMTP_mtpdevice_t *device,
