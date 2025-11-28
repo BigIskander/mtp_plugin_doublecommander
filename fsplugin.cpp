@@ -455,10 +455,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                     deviceOld, folder, UTF16toUTF8(fileNameNew.data()).data()
                 ) == 0
             ) {
-                LIBMTP_FreeMemory(folder);
+                LIBMTP_destroy_folder_t(folder);
                 return FS_FILE_OK;
             }
-            LIBMTP_FreeMemory(folder);
+            LIBMTP_destroy_folder_t(folder);
             return FS_FILE_WRITEERROR;
         } else {
             LIBMTP_file_t *file = LIBMTP_new_file_t();
@@ -471,10 +471,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                     deviceOld, file, UTF16toUTF8(fileNameNew.data()).data()
                 ) == 0
             ) {
-                LIBMTP_FreeMemory(file);
+                LIBMTP_destroy_file_t(file);
                 return FS_FILE_OK;
             }
-            LIBMTP_FreeMemory(file);
+            LIBMTP_destroy_file_t(file);
             return FS_FILE_WRITEERROR;
         }
     }
@@ -517,7 +517,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(isNewExists & OverWrite)
     {
         // delete already existing file (to replace with new one)
-        if(LIBMTP_Delete_Object(deviceOld, leafNew)) 
+        if(
+            LIBMTP_Delete_Object(deviceOld, leafNew) != 0
+        ) 
         {
             return FS_FILE_WRITEERROR;
         }
