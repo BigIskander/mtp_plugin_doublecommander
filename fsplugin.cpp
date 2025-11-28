@@ -550,6 +550,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     return FS_FILE_OK;
 }
 
+BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
+{
+    return true;
+}
+    
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L7584 // create folder

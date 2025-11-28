@@ -79,11 +79,17 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     int ret = LIBMTP_Get_Storage(newDevice, LIBMTP_STORAGE_SORTBY_NOTSORTED);
     if(ret != 0) return;
     if(newDevice->storage == NULL) return;
+    char* friendlyName = LIBMTP_Get_Friendlyname(newDevice);
     char* manufacturer = LIBMTP_Get_Manufacturername(newDevice);
     char* model = LIBMTP_Get_Modelname(newDevice);
-    wcharstring originalName = UTF8toUTF16(manufacturer)
-        .append((WCHAR*)u" ")
-        .append(UTF8toUTF16(model));
+    wcharstring originalName = (WCHAR*)u"";
+    if(friendlyName != NULL) 
+        originalName = UTF8toUTF16(friendlyName);
+    if(originalName == (WCHAR*)u"")
+        originalName = UTF8toUTF16(manufacturer)
+            .append((WCHAR*)u" ")
+            .append(UTF8toUTF16(model));
+    LIBMTP_FreeMemory(friendlyName);
     LIBMTP_FreeMemory(manufacturer);
     LIBMTP_FreeMemory(model);
     // trick to copy value not reference
