@@ -420,33 +420,39 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(folderPathNew == wcharstring((WCHAR*)u"/").append(deviceNameNew))
         return FS_FILE_NOTSUPPORTED;
 
-    // renaming file or folder if necessary
-    if(folderPathNew == folderPathOld)
-    {
-        // Just rename it
-        wcharstring fileNameNew;
+    wcharstring fileNameNew;
         getFileName(wPathNew, fileNameNew);
         if(fileNameNew == (WCHAR*)u"") // no empty name
             return FS_FILE_WRITEERROR;
 
-        LIBMTP_mtpdevice_t* device = getDevice(deviceNameNew);
-        if(device == NULL)
+    LIBMTP_mtpdevice_t* deviceOld = getDevice(deviceNameOld);
+        if(deviceOld == NULL)
             return FS_FILE_NOTFOUND;
-        LIBMTP_devicestorage_t* storage = getStorage(device, storageNameNew);
-        if(storage == NULL)
+    LIBMTP_devicestorage_t* storageOld = getStorage(deviceOld, storageNameOld);
+        if(storageOld == NULL)
             return FS_FILE_NOTFOUND;
-        
-        uint32_t leaf;
-        if(getPathLeaf(device, storage, internalPathOld, leaf))
+
+    bool isOldFolder = false;
+    uint32_t leafOld;
+    if(getPathLeaf(deviceOld, storageOld, internalPathOld, leafOld))
+        isOldFolder = true;
+    else if(!getPathLeaf(deviceOld, storageOld, internalPathOld, leafOld, false))
+        return FS_FILE_NOTFOUND;
+
+    // renaming file or folder if necessary
+    if(folderPathNew == folderPathOld)
+    {
+        // Just rename it
+        if(isOldFolder)
         {
             // rename folder
             LIBMTP_folder_t *folder = LIBMTP_new_folder_t();
             if(folder == NULL)
                 return FS_FILE_WRITEERROR; // it's extreemly unlikely though
-            folder->folder_id = leaf;
+            folder->folder_id = leafOld;
             if(
                 LIBMTP_Set_Folder_Name(
-                    device, folder, UTF16toUTF8(fileNameNew.data()).data()
+                    deviceOld, folder, UTF16toUTF8(fileNameNew.data()).data()
                 ) == 0
             ) {
                 LIBMTP_FreeMemory(folder);
@@ -455,25 +461,21 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
             LIBMTP_FreeMemory(folder);
             return FS_FILE_WRITEERROR;
         } else {
-            if(getPathLeaf(device, storage, internalPathOld, leaf, false))
-            {
-                LIBMTP_file_t *file = LIBMTP_new_file_t();
-                if(file == NULL)
-                    return FS_FILE_WRITEERROR; // it's extreemly unlikely though
-                file->item_id = leaf;
-                file->filetype = find_filetype(UTF16toUTF8(fileNameNew.data()).data());
-                if(
-                    LIBMTP_Set_File_Name(
-                        device, file, UTF16toUTF8(fileNameNew.data()).data()
-                    ) == 0
-                ) {
-                    LIBMTP_FreeMemory(file);
-                    return FS_FILE_OK;
-                }
+            LIBMTP_file_t *file = LIBMTP_new_file_t();
+            if(file == NULL)
+                return FS_FILE_WRITEERROR; // it's extreemly unlikely though
+            file->item_id = leafOld;
+            file->filetype = find_filetype(UTF16toUTF8(fileNameNew.data()).data());
+            if(
+                LIBMTP_Set_File_Name(
+                    deviceOld, file, UTF16toUTF8(fileNameNew.data()).data()
+                ) == 0
+            ) {
                 LIBMTP_FreeMemory(file);
-                return FS_FILE_WRITEERROR;
+                return FS_FILE_OK;
             }
-            return FS_FILE_NOTFOUND;
+            LIBMTP_FreeMemory(file);
+            return FS_FILE_WRITEERROR;
         }
     }
 
@@ -482,7 +484,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     // //
 
     // copy or move file
-
+    wcharstring internalFolderPathNew;
+    getFolderPath(internalPathNew, internalFolderPathNew);
+    
+    uint32_t leaf;
+    // getPathLeaf()
 
     /* not implemented yet */
     // LIBMTP_Move_Object(LIBMTP_mtpdevice_t *device,
