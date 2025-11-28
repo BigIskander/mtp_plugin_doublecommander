@@ -80,18 +80,28 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     if(ret != 0) return;
     if(newDevice->storage == NULL) return;
     char* friendlyName = LIBMTP_Get_Friendlyname(newDevice);
-    char* manufacturer = LIBMTP_Get_Manufacturername(newDevice);
-    char* model = LIBMTP_Get_Modelname(newDevice);
     wcharstring originalName = (WCHAR*)u"";
     if(friendlyName != NULL) 
+    {
         originalName = UTF8toUTF16(friendlyName);
+        LIBMTP_FreeMemory(friendlyName);
+    }
     if(originalName == (WCHAR*)u"")
-        originalName = UTF8toUTF16(manufacturer)
-            .append((WCHAR*)u" ")
-            .append(UTF8toUTF16(model));
-    LIBMTP_FreeMemory(friendlyName);
-    LIBMTP_FreeMemory(manufacturer);
-    LIBMTP_FreeMemory(model);
+    {
+        char* manufacturer = LIBMTP_Get_Manufacturername(newDevice);
+        if(manufacturer != NULL)
+        {
+            originalName = UTF8toUTF16(manufacturer);
+            LIBMTP_FreeMemory(manufacturer);
+        }
+        originalName = originalName.append((WCHAR*)u" ");
+        char* model = LIBMTP_Get_Modelname(newDevice);
+        if(model != NULL)
+        {
+            originalName = originalName.append(UTF8toUTF16(model));
+            LIBMTP_FreeMemory(model);
+        }
+    }
     // trick to copy value not reference
     wcharstring name = wcharstring((WCHAR*)u"").append(originalName); 
     // no slashes in device name
