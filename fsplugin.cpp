@@ -352,7 +352,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
             return FS_FILE_EXISTS;
         } else {
             // delete already existing file (to replace with new one)
-            if(LIBMTP_Delete_Object(device, leaf)) 
+            if(LIBMTP_Delete_Object(device, leaf) != 0) 
             {
                 return FS_FILE_WRITEERROR;
             }
@@ -552,6 +552,33 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
 BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 {
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no delete file if it is root folder of plugin or if it is root folder of device (not supported)
+    if(wPath == (WCHAR*)u"/")
+        return false;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return false;
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName).append((WCHAR*)u"/").append(storageName))
+        return false;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return false;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return false;
+
+    uint32_t leaf;
+    if(!getPathLeaf(device, storage, internalPath, leaf, false)) 
+        return false;
+    
+    if(LIBMTP_Delete_Object(device, leaf) != 0) 
+        return false;
+
     return true;
 }
     
