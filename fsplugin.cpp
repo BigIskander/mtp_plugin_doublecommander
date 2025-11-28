@@ -652,6 +652,54 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
 
     return true;
 }
+
+BOOL DCPCALL FsMkDirW(WCHAR* Path)
+{
+    wcharstring wPath(Path), deviceName, storageName, internalPath, folderPath, fileName;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no create folder in root folder of plugin or in root folder of device (not supported)
+    getFolderPath(wPath, folderPath);
+    if(folderPath == (WCHAR*)u"/")
+        return false;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(folderPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return false;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return false;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return false;
+
+    getFolderPath(internalPath, folderPath);
+
+    uint32_t folderLeaf;
+    if(!getPathLeaf(device, storage, folderPath, folderLeaf))
+        return false;
+
+    // check if folder or file already exists
+    uint32_t leaf;
+    if(getPathLeaf(device, storage, internalPath, leaf)) 
+        return true;
+    else if(getPathLeaf(device, storage, internalPath, leaf, false))
+        return false;
+
+    getFileName(internalPath, fileName);
+
+    if(LIBMTP_Create_Folder(
+            device, 
+            (char*)UTF16toUTF8((WCHAR*)fileName.data()).data(),
+            folderLeaf, 
+            storage->id
+        ) == 0
+    )
+        return false;
+
+    return true;
+}
     
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
