@@ -583,6 +583,75 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 
     return true;
 }
+
+BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
+{
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no delete file if it is root folder of plugin or if it is root folder of device (not supported)
+    if(wPath == (WCHAR*)u"/")
+        return false;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return false;
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName).append((WCHAR*)u"/").append(storageName))
+        return false;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return false;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return false;
+
+    uint32_t leaf;
+    if(!getPathLeaf(device, storage, internalPath, leaf)) 
+        return false;
+    
+    // Check if folder is empty
+    LIBMTP_file_t *files;
+    files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
+    if (files != NULL) 
+    {
+        // delete non empty folder not rocommended
+        // recursively deleting content of folder
+        if(files->filetype == LIBMTP_FILETYPE_FOLDER) 
+        {
+            if(!FsRemoveDirW(
+                    (WCHAR*)UTF8toUTF16("")
+                        .append(RemoteName)
+                        .append((WCHAR*)u"/")
+                        .append(UTF8toUTF16(files->filename))
+                        .data()
+                )
+            ) {
+                LIBMTP_destroy_file_t(files);
+                return false;
+            }
+        } else {
+            if(!FsDeleteFileW(
+                    (WCHAR*)UTF8toUTF16("")
+                        .append(RemoteName)
+                        .append((WCHAR*)u"/")
+                        .append(UTF8toUTF16(files->filename))
+                        .data()
+                )
+            ) {
+                LIBMTP_destroy_file_t(files);
+                return false;
+            }
+        }
+        LIBMTP_destroy_file_t(files);
+    }
+
+    // remove folder after it's content is empty
+    if(LIBMTP_Delete_Object(device, leaf) != 0) 
+        return false;
+
+    return true;
+}
     
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
