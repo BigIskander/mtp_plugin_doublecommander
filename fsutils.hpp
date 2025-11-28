@@ -88,6 +88,9 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     LIBMTP_FreeMemory(model);
     // trick to copy value not reference
     wcharstring name = wcharstring((WCHAR*)u"").append(originalName); 
+    // no slashes in device name
+    std::replace(name.begin(), name.end(), u'\\', u'/');
+    std::replace(name.begin(), name.end(), u'/', u' ');
     int i = 0;
     while (isDeviceNameTaken(name) && i < 1000)
     {
@@ -452,6 +455,7 @@ void getFolderPath(wcharstring wPath, wcharstring& folderPath)
 {
     size_t nPos = wPath.find_last_of((WCHAR*)u"/");
     folderPath = wPath.substr(0, nPos);
+    if(folderPath == (WCHAR*)u"") folderPath = (WCHAR*)u"/";
 }
 
 void getFileName(wcharstring wPath, wcharstring& fileName)

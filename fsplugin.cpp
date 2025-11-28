@@ -45,6 +45,7 @@ int DCPCALL FsInitW(
 // MTP Devices data
 LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
+bool isInit = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -54,7 +55,11 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     wcharstring wPath(Path);
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
-    LIBMTP_Init();
+    if(!isInit)
+    {
+        LIBMTP_Init(); // call this function only once
+        isInit = true;
+    } 
 
     if(wPath.length() == 1) { // root folder of plugin
         int err = LIBMTP_Detect_Raw_Devices(&rawdevices, &numrawdevices);
@@ -378,6 +383,117 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     gProgressProc(gPluginNumber, LocalName, RemoteName, 100); 
     return FS_FILE_OK;
 }
+
+int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWrite, RemoteInfoStruct* ri)
+{
+    wcharstring wPathOld(OldName), wPathNew(NewName);
+    wcharstring deviceNameOld, storageNameOld, internalPathOld, folderPathOld;
+    wcharstring deviceNameNew, storageNameNew, internalPathNew, folderPathNew;
+    std::replace(wPathOld.begin(), wPathOld.end(), u'\\', u'/');
+    std::replace(wPathNew.begin(), wPathNew.end(), u'\\', u'/');
+
+    parsePath(wPathOld, deviceNameOld, storageNameOld, internalPathOld);
+    parsePath(wPathNew, deviceNameNew, storageNameNew, internalPathNew);
+    getFolderPath(internalPathOld, folderPathOld);
+    getFolderPath(internalPathNew, folderPathNew);
+
+    // move or copy directly from one device to another not supported
+    if(deviceNameNew != deviceNameOld)
+        return FS_FILE_NOTSUPPORTED;
+    /* TODO: try to implement device to device file transfer */
+
+    // no copy file if it is root folder of plugin or if it is root folder of device (not supported)
+    if(wPathOld == (WCHAR*)u"/")
+        return FS_FILE_NOTSUPPORTED;
+    if(wPathOld == wcharstring((WCHAR*)u"/").append(deviceNameOld))
+        return FS_FILE_NOTSUPPORTED;
+    if(wPathOld == wcharstring((WCHAR*)u"/")
+        .append(deviceNameOld)
+        .append((WCHAR*)u"/")
+        .append(storageNameOld)
+    )
+        return FS_FILE_NOTSUPPORTED;
+
+    // no copy file to root folder of plugin or to root folder of device (not supported)
+    if(folderPathNew == (WCHAR*)u"/")
+        return FS_FILE_NOTSUPPORTED;
+    if(folderPathNew == wcharstring((WCHAR*)u"/").append(deviceNameNew))
+        return FS_FILE_NOTSUPPORTED;
+
+    // renaming file or folder if necessary
+    if(folderPathNew == folderPathOld)
+    {
+        // Just rename it
+        wcharstring fileNameNew;
+        getFileName(wPathNew, fileNameNew);
+        /* TODO: add regex check (no special characters allowed) */
+        if(fileNameNew == (WCHAR*)u"") // no empty name
+            return FS_FILE_WRITEERROR;
+
+        LIBMTP_mtpdevice_t* device = getDevice(deviceNameNew);
+        if(device == NULL)
+            return FS_FILE_NOTFOUND;
+        LIBMTP_devicestorage_t* storage = getStorage(device, storageNameNew);
+        if(storage == NULL)
+            return FS_FILE_NOTFOUND;
+        
+        uint32_t leaf;
+        if(getPathLeaf(device, storage, internalPathOld, leaf))
+        {
+            // rename folder
+            LIBMTP_folder_t *folder = LIBMTP_new_folder_t();
+            if(folder == NULL)
+                return FS_FILE_WRITEERROR; // it's extreemly unlikely though
+            folder->folder_id = leaf;
+            if(
+                LIBMTP_Set_Folder_Name(
+                    device, folder, UTF16toUTF8(fileNameNew.data()).data()
+                ) == 0
+            ) {
+                LIBMTP_FreeMemory(folder);
+                return FS_FILE_OK;
+            }
+            LIBMTP_FreeMemory(folder);
+            return FS_FILE_WRITEERROR;
+        } else {
+            if(getPathLeaf(device, storage, internalPathOld, leaf, false))
+            {
+                LIBMTP_file_t *file = LIBMTP_new_file_t();
+                if(file == NULL)
+                    return FS_FILE_WRITEERROR; // it's extreemly unlikely though
+                file->item_id = leaf;
+                file->filetype = find_filetype(UTF16toUTF8(fileNameNew.data()).data());
+                if(
+                    LIBMTP_Set_File_Name(
+                        device, file, UTF16toUTF8(fileNameNew.data()).data()
+                    ) == 0
+                ) {
+                    LIBMTP_FreeMemory(file);
+                    return FS_FILE_OK;
+                }
+                LIBMTP_FreeMemory(file);
+                return FS_FILE_WRITEERROR;
+            }
+        }
+    }
+
+    /* not implemented yet */
+    // LIBMTP_Move_Object(LIBMTP_mtpdevice_t *device,
+	// 	       uint32_t object_id,
+	// 	       uint32_t storage_id,
+	// 	       uint32_t parent_id)
+    // LIBMTP_Move_Object();
+    
+    return FS_FILE_OK;
+}
+
+// https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6972 // move object
+    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
+    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
+    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L7584 // create folder
+    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
+    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L9212 // thumbnail
+
 
 // int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
 // {
