@@ -209,7 +209,6 @@ void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf)
     (*it).leafCache.push_back(cache);
 }
 
-/* TODO: check this function */
 void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
     auto it = std::find_if(
         availableDevices.begin(), 
