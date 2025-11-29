@@ -55,6 +55,12 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     wcharstring wPath(Path);
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
+    // fix issue with traversing files and folders
+    if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
+    {
+        wPath = wPath.substr(0, wPath.size() - 1);
+    }
+
     if(!isInit)
     {
         LIBMTP_Init(); // call this function only once
