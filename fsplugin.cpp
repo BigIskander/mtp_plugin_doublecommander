@@ -529,7 +529,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     {
         if(
             LIBMTP_Move_Object(
-                deviceOld, leafOld, storageOld->id, parentLeafNew
+                deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
@@ -539,7 +539,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     } else {
         if(
             LIBMTP_Copy_Object(
-                deviceOld, leafOld, storageOld->id, parentLeafNew
+                deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
@@ -550,6 +550,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     
     return FS_FILE_OK;
 }
+/* TODO: test this function with more than one storages */
 
 BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 {
@@ -611,39 +612,44 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
         return false;
     
     // Check if folder is empty
-    LIBMTP_file_t *files;
+    LIBMTP_file_t *files, *tmp;
     files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
     if (files != NULL) 
     {
         // delete non empty folder not rocommended
         // recursively deleting content of folder
-        if(files->filetype == LIBMTP_FILETYPE_FOLDER) 
+        while (files != NULL)
         {
-            if(!FsRemoveDirW(
-                    (WCHAR*)UTF8toUTF16("")
-                        .append(RemoteName)
-                        .append((WCHAR*)u"/")
-                        .append(UTF8toUTF16(files->filename))
-                        .data()
-                )
-            ) {
-                LIBMTP_destroy_file_t(files);
-                return false;
+            if(files->filetype == LIBMTP_FILETYPE_FOLDER) 
+            {
+                if(!FsRemoveDirW(
+                        (WCHAR*)UTF8toUTF16("")
+                            .append(RemoteName)
+                            .append((WCHAR*)u"/")
+                            .append(UTF8toUTF16(files->filename))
+                            .data()
+                    )
+                ) {
+                    LIBMTP_destroy_file_t(files);
+                    return false;
+                }
+            } else {
+                if(!FsDeleteFileW(
+                        (WCHAR*)UTF8toUTF16("")
+                            .append(RemoteName)
+                            .append((WCHAR*)u"/")
+                            .append(UTF8toUTF16(files->filename))
+                            .data()
+                    )
+                ) {
+                    LIBMTP_destroy_file_t(files);
+                    return false;
+                }
             }
-        } else {
-            if(!FsDeleteFileW(
-                    (WCHAR*)UTF8toUTF16("")
-                        .append(RemoteName)
-                        .append((WCHAR*)u"/")
-                        .append(UTF8toUTF16(files->filename))
-                        .data()
-                )
-            ) {
-                LIBMTP_destroy_file_t(files);
-                return false;
-            }
+            tmp = files;
+            files = files->next;
+            LIBMTP_destroy_file_t(tmp);
         }
-        LIBMTP_destroy_file_t(files);
     }
 
     // remove folder after it's content is empty
