@@ -305,8 +305,8 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
         return FS_FILE_NOTSUPPORTED;
 
     // this hint is never sent
-    if(((CopyFlags & FS_COPYFLAGS_EXISTS_SAMECASE) | (CopyFlags & FS_COPYFLAGS_EXISTS_DIFFERENTCASE)) 
-            & !(CopyFlags & FS_COPYFLAGS_OVERWRITE))  
+    if(((CopyFlags & FS_COPYFLAGS_EXISTS_SAMECASE) || (CopyFlags & FS_COPYFLAGS_EXISTS_DIFFERENTCASE)) 
+            && !(CopyFlags & FS_COPYFLAGS_OVERWRITE))  
         return FS_FILE_EXISTS;
     
     wcharstring wPath(RemoteName), deviceName, storageName, internalPath, folderPath, fileName;
@@ -400,7 +400,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     // move or copy directly from one device to another not supported
     if(deviceNameNew != deviceNameOld)
         return FS_FILE_NOTSUPPORTED;
-    /* TODO: try to implement device to device file transfer */
 
     // no copy file if it is root folder of plugin or if it is root folder of device (not supported)
     if(wPathOld == (WCHAR*)u"/")
@@ -586,6 +585,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 
 BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
 {
+    /* TODO: remove dir from cache after deletion? */
     wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
@@ -701,20 +701,17 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     return true;
 }
     
-    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L5467 // file to handler
-    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L6175 // file from handler
-    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L7584 // create folder
+int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
+{
+    WCHAR* ReturnedText;
+    int maxlen = 0;
+    if(strcmp(Verb, "open") == 0 && strcmp(RemoteName, "/<Update list>") == 0) 
+    {
+        
+    }
+    return FS_EXEC_OK;
+}
+
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L9212 // thumbnail
 
-
-// int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
-// {
-//     WCHAR* ReturnedText;
-//     int maxlen = 0;
-//     if(strcmp(Verb, "open") == 0 && strcmp(RemoteName, "/<Update list of devices>") == 0) 
-//     {
-//         bool upd = gRequestProc(gPluginNumber, RT_MsgYesNo, (WCHAR*)u"Update list of devices?", (WCHAR*)u"All open MTP connections will be closed.", ReturnedText, maxlen); 
-//     }
-//     return FS_EXEC_OK;
-// }

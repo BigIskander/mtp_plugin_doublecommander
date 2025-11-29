@@ -57,8 +57,17 @@ void filterConnectedDevices() {
         [](const AvailableDevice& item)
         {
             int ret = LIBMTP_Get_Storage(item.device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
-            if(ret != 0) return true;
-            return item.device->storage == NULL;
+            if(ret != 0) 
+            {
+                LIBMTP_FreeMemory(item.device);
+                return true;
+            }
+            if(item.device->storage == NULL)
+            {
+                LIBMTP_FreeMemory(item.device);
+                return true;
+            }
+            return false;
         }
     ), availableDevices.end());
 }
@@ -77,8 +86,16 @@ bool isDeviceNameTaken(wcharstring name) {
 void addDevice(LIBMTP_mtpdevice_t* newDevice) {
     if(newDevice == NULL) return;
     int ret = LIBMTP_Get_Storage(newDevice, LIBMTP_STORAGE_SORTBY_NOTSORTED);
-    if(ret != 0) return;
-    if(newDevice->storage == NULL) return;
+    if(ret != 0) 
+    {
+        LIBMTP_FreeMemory(newDevice);
+        return;
+    }
+    if(newDevice->storage == NULL)
+    {
+        LIBMTP_FreeMemory(newDevice);
+        return;
+    } 
     char* friendlyName = LIBMTP_Get_Friendlyname(newDevice);
     wcharstring originalName = (WCHAR*)u"";
     if(friendlyName != NULL) 
@@ -91,7 +108,7 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
         char* manufacturer = LIBMTP_Get_Manufacturername(newDevice);
         if(manufacturer != NULL)
         {
-            originalName = UTF8toUTF16(manufacturer);
+            originalName = originalName.append(UTF8toUTF16(manufacturer));
             LIBMTP_FreeMemory(manufacturer);
         }
         originalName = originalName.append((WCHAR*)u" ");
@@ -192,6 +209,7 @@ void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf)
     (*it).leafCache.push_back(cache);
 }
 
+/* TODO: check this function */
 void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
     auto it = std::find_if(
         availableDevices.begin(), 
