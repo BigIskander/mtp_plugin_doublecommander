@@ -277,6 +277,8 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
 bool getPathLeaf(
     LIBMTP_mtpdevice_t* device, 
     LIBMTP_devicestorage_t* storage, 
+    wcharstring deviceName,
+    wcharstring storageName,
     wcharstring internalPath, 
     uint32_t& leaf,
     bool isFolder = true
@@ -286,6 +288,10 @@ bool getPathLeaf(
     if(internalPath.substr(0, 1).data() != UTF8toUTF16("/")) return false; // error incorrect path
     leaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
     if(internalPath.size() == 1) return true; // root folder
+    wcharstring fullPath =  wcharstring((WCHAR*)u"/")
+                                .append(deviceName)
+                                .append((WCHAR*)u"/")
+                                .append(storageName);
     wcharstring path = (WCHAR*)u"", topFolderName, subFolder = internalPath;
     LIBMTP_file_t *files = NULL, *tmp;
     bool match;
@@ -295,10 +301,11 @@ bool getPathLeaf(
         match = false;
         getTopFolderName(subFolder, topFolderName, subFolder);
         path = path.append((WCHAR*)u"/").append(topFolderName);
+        fullPath = fullPath.append((WCHAR*)u"/").append(topFolderName);
         if(isFolder == true || (isFolder == false && subFolder != (WCHAR*)u""))
         {
             // check cache
-            if(getLeafFromCache(device, path, tmpLeaf))
+            if(getLeafFromCache(device, fullPath, tmpLeaf))
             {
                 leaf = tmpLeaf;
                 if(path == internalPath) 
@@ -332,7 +339,7 @@ bool getPathLeaf(
                     return false; 
                 }
                 leaf = files->item_id;
-                addLeafToCache(device, path, leaf);
+                addLeafToCache(device, fullPath, leaf);
                 if(path == internalPath) 
                 {
                     LIBMTP_destroy_file_t(files);

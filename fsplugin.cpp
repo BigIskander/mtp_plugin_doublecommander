@@ -172,7 +172,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 storage = getStorage(device, storageName);
                 if(storage != NULL) {
                     uint32_t leaf;
-                    if(getPathLeaf(device, storage, internalPath, leaf)) {
+                    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) {
                         pRes = showFilesAndFolders(device, storage, leaf);
                     } else {
                         gLogProc(
@@ -281,7 +281,7 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
             return FS_FILE_USERABORT;
 
     uint32_t leaf;
-    if(getPathLeaf(device, storage, internalPath, leaf, false))
+    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
     {
         copyFromTo pData;
         pData.From = RemoteName;
@@ -331,7 +331,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     getFolderPath(internalPath, folderPath);
 
     uint32_t folderLeaf;
-    if(!getPathLeaf(device, storage, folderPath, folderLeaf))
+    if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, folderLeaf))
         return FS_FILE_WRITEERROR;
 
     uint64_t fileSize;
@@ -345,7 +345,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
 
     // check if file already exists
     uint32_t leaf;
-    if(getPathLeaf(device, storage, internalPath, leaf, false)) 
+    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false)) 
     {
         if(!(CopyFlags & FS_COPYFLAGS_OVERWRITE))
         {
@@ -433,9 +433,13 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
     bool isOldFolder = false;
     uint32_t leafOld;
-    if(getPathLeaf(deviceOld, storageOld, internalPathOld, leafOld))
+    if(getPathLeaf(
+        deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld
+    ))
         isOldFolder = true;
-    else if(!getPathLeaf(deviceOld, storageOld, internalPathOld, leafOld, false))
+    else if(!getPathLeaf(
+        deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld, false
+    ))
         return FS_FILE_NOTFOUND;
 
     // renaming file or folder if necessary
@@ -495,9 +499,13 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     // check if file or folder with destination path already exists
     bool isNewExists = false;
     uint32_t leafNew;
-    if(getPathLeaf(deviceOld, storageNew, internalPathNew, leafNew))
+    if(getPathLeaf(
+        deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew
+    ))
         isNewExists = true;
-    else if(getPathLeaf(deviceOld, storageNew, internalPathNew, leafNew, false))
+    else if(getPathLeaf(
+        deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
+    ))
         isNewExists = true;
 
     if(isNewExists & !OverWrite)
@@ -507,7 +515,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     getFolderPath(internalPathNew, internalParentNew);
 
     uint32_t parentLeafNew;
-    if(!getPathLeaf(deviceOld, storageOld, internalParentNew, parentLeafNew))
+    if(!getPathLeaf(
+        deviceOld, storageOld, deviceNameOld, storageNameOld, internalParentNew, parentLeafNew
+    ))
         return FS_FILE_WRITEERROR;
 
     if(gProgressProc(gPluginNumber, OldName, NewName, 0) != 0) 
@@ -575,7 +585,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
         return false;
 
     uint32_t leaf;
-    if(!getPathLeaf(device, storage, internalPath, leaf, false)) 
+    if(!getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false)) 
         return false;
     
     if(LIBMTP_Delete_Object(device, leaf) != 0) 
@@ -586,7 +596,6 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 
 BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
 {
-    /* TODO: remove dir from cache after deletion? */
     wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
@@ -608,7 +617,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
         return false;
 
     uint32_t leaf;
-    if(!getPathLeaf(device, storage, internalPath, leaf)) 
+    if(!getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
         return false;
     
     // Check if folder is empty
@@ -650,11 +659,16 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
             files = files->next;
             LIBMTP_destroy_file_t(tmp);
         }
+        // maybe it doesnt even necessary 
+        // Double Commander itself calls deletion functions recursevelly
     }
 
     // remove folder after it's content is empty
     if(LIBMTP_Delete_Object(device, leaf) != 0) 
         return false;
+    
+    // remove folder from cache after deletion
+    removeLeafsFromCache(device, RemoteName);
 
     return true;
 }
@@ -683,14 +697,14 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     getFolderPath(internalPath, folderPath);
 
     uint32_t folderLeaf;
-    if(!getPathLeaf(device, storage, folderPath, folderLeaf))
+    if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, folderLeaf))
         return false;
 
     // check if folder or file already exists
     uint32_t leaf;
-    if(getPathLeaf(device, storage, internalPath, leaf)) 
+    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
         return true;
-    else if(getPathLeaf(device, storage, internalPath, leaf, false))
+    else if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
         return false;
 
     getFileName(internalPath, fileName);
