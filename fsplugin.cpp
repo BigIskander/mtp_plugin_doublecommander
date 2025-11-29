@@ -727,16 +727,6 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     return true;
 }
     
-int DCPCALL FsExecuteFile(HWND MainWin, char* RemoteName, char* Verb)
-{
-    WCHAR* ReturnedText;
-    int maxlen = 0;
-    if(strcmp(Verb, "open") == 0 && strcmp(RemoteName, "/<Update list>") == 0) 
-    {
-        
-    }
-    return FS_EXEC_OK;
-}
 
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L9212 // thumbnail

@@ -396,10 +396,11 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
     pRes->nCount = 0;
     pRes->resource_array.resize(numOfStorages);
     wcharstring wName;
+    size_t str_size;
     storage = device->storage;
     for(int i = 0; i < numOfStorages; i++) {
         wName = UTF8toUTF16(storage->StorageDescription);
-        size_t str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
+        str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
         memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
         storage = storage->next;
