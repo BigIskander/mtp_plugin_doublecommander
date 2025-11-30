@@ -27,6 +27,7 @@ License along with this library; if not, write to the Free Software
 #include "fsplugin.h"
 #include "utils.hpp"
 #include <libmtp.h>
+// #include <chrono>
 
 // Doublecommander API callback functions
 int gPluginNumber;
@@ -41,11 +42,18 @@ struct PathElement
     uint32_t leaf;
 };
 
+struct PathFolderElement
+{
+    wcharstring path;
+    uint32_t leaf;
+    std::vector<PathElement> elementsCache;
+};
+
 struct AvailableDevice
 {
    LIBMTP_mtpdevice_t* device;
    wcharstring name;
-   std::vector<PathElement> leafCache;
+   std::vector<PathFolderElement> leafCache;
 };
 
 std::vector<AvailableDevice> availableDevices;
@@ -203,7 +211,7 @@ void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf)
         }
     );
     if(it == availableDevices.end()) return; // not found such device
-    PathElement cache;
+    PathFolderElement cache;
     cache.path = path;
     cache.leaf = leaf;
     (*it).leafCache.push_back(cache);
@@ -223,7 +231,7 @@ void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
     leafCache->erase(std::remove_if(
         leafCache->begin(),
         leafCache->end(),
-        [rPath](const PathElement& item)
+        [rPath](const PathFolderElement& item)
         {
             return item.path.substr(0, rPath.size()) == rPath;
         }
@@ -247,7 +255,7 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
     auto cacheItem = std::find_if(
         cache->begin(), 
         cache->end(), 
-        [path](const PathElement& item) 
+        [path](const PathFolderElement& item) 
         {
             return item.path == path;
         }
@@ -271,6 +279,53 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
         return false;
     }
     LIBMTP_destroy_file_t(file);
+    return true;
+}
+
+PathFolderElement* getPathFolderElement(
+    LIBMTP_mtpdevice_t* device, 
+    wcharstring path
+) {
+    // find device in available devices list
+    auto it = std::find_if(
+        availableDevices.begin(), 
+        availableDevices.end(), 
+        [device](const AvailableDevice& item) 
+        {
+            return item.device == device;
+        }
+    );
+    if(it == availableDevices.end()) return NULL;
+    // find path cache element
+    auto caches = &(*it).leafCache; // does it makes copy here
+    auto cache = std::find_if(
+        caches->begin(),
+        caches->end(),
+        [path](const PathFolderElement& item)
+        {
+            return item.path == path;
+        }
+    );
+    if(cache == caches->end()) return NULL;
+    // return cache if found
+    return &(*cache);
+}
+
+bool getLeafFromcachedFolderItems(
+    std::vector<PathElement> cachedFolderItems,
+    wcharstring itemName,
+    uint32_t& leaf
+) {
+    auto el = std::find_if(
+        cachedFolderItems.begin(),
+        cachedFolderItems.end(),
+        [itemName](const PathElement& item)
+        {
+            return item.path == itemName;
+        }
+    );
+    if(el == cachedFolderItems.end()) return false;
+    leaf = (*el).leaf;
     return true;
 }
 
@@ -409,19 +464,37 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
 }
 
 pResources showFilesAndFolders(
-    LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, uint32_t leaf
+    LIBMTP_mtpdevice_t* device, 
+    LIBMTP_devicestorage_t* storage, 
+    wcharstring folderPath,
+    uint32_t leaf
 ) 
 {
     if(device == NULL || storage == NULL) return NULL;
+
+    // get and clear cache
+    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
+    if(cachedFolderItems != NULL) cachedFolderItems->elementsCache.clear();
+
+    // get list of files and folders in folder
     LIBMTP_file_t *files, *tmp;
     files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
     if (files != NULL) 
     {
+        // auto t1 = std::chrono::high_resolution_clock::now();
         LIBMTP_file_t *file;
         file = files;
         int numOfEntries = 0;
+        PathElement pathE;
         while (file != NULL) 
         {
+            if(cachedFolderItems != NULL)
+            {
+                // add item to cache
+                pathE.leaf = file->item_id;
+                pathE.path = UTF8toUTF16(file->filename);
+                cachedFolderItems->elementsCache.push_back(pathE);
+            }
             numOfEntries++;
             file = file->next;
         }
@@ -452,6 +525,13 @@ pResources showFilesAndFolders(
             file = file->next;
             LIBMTP_destroy_file_t(tmp);
         }
+        // auto t2 = std::chrono::high_resolution_clock::now();
+        // int ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+        // gLogProc(
+        //     gPluginNumber, 
+        //     MSGTYPE_CONNECT, 
+        //     (WCHAR*)int_to_wcharstring(ms_int).data()
+        // );
         return pRes;
     }
     return NULL;

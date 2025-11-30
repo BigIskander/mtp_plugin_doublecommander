@@ -179,7 +179,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 if(storage != NULL) {
                     uint32_t leaf;
                     if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) {
-                        pRes = showFilesAndFolders(device, storage, leaf);
+                        pRes = showFilesAndFolders(device, storage, wPath, leaf);
                     } else {
                         gLogProc(
                             gPluginNumber, 
@@ -286,8 +286,36 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(gProgressProc(gPluginNumber, RemoteName, LocalName, 0) != 0) 
             return FS_FILE_USERABORT;
 
+    wcharstring folderPath, fileName;
+    getFolderPath(RemoteName, folderPath);
+    getFileName(RemoteName, fileName);
+
+    bool isLeafFound = false;
     uint32_t leaf;
-    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
+    // search and get leaf from cache (fro speed)
+    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
+    if(cachedFolderItems != NULL)
+    {
+        if(getLeafFromcachedFolderItems(cachedFolderItems->elementsCache, fileName, leaf))
+        { 
+            LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
+            if(file != NULL) 
+            {
+                if(file->parent_id == cachedFolderItems->leaf) isLeafFound = true;
+            }
+            LIBMTP_destroy_file_t(file);
+        }
+    }
+    // if leaf not in cache get leaf the old way
+    if(!isLeafFound)
+    {
+        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
+        {
+            isLeafFound = true;
+        }
+    }
+
+    if(isLeafFound)
     {
         copyFromTo pData;
         pData.From = RemoteName;
