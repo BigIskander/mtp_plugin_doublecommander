@@ -341,16 +341,22 @@ bool getPathLeaf(
 {
     if(device == NULL || storage == NULL) return false; // no device or no storage specified
     if(internalPath.substr(0, 1).data() != UTF8toUTF16("/")) return false; // error incorrect path
-    leaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
-    if(internalPath.size() == 1) return true; // root folder
+    leaf = LIBMTP_FILES_AND_FOLDERS_ROOT; // is -1
+    uint32_t tmpLeaf;
     wcharstring fullPath =  wcharstring((WCHAR*)u"/")
                                 .append(deviceName)
                                 .append((WCHAR*)u"/")
                                 .append(storageName);
+    if(internalPath.size() == 1) {
+        // special case root folder of storage
+        if(!getLeafFromCache(device, fullPath, tmpLeaf))
+            // parent id of files and folder in root is 0 for some reason
+            addLeafToCache(device, fullPath, 0); 
+        return true;
+    }
     wcharstring path = (WCHAR*)u"", topFolderName, subFolder = internalPath;
     LIBMTP_file_t *files = NULL, *tmp;
     bool match;
-    uint32_t tmpLeaf;
     while (path != internalPath && path.size() <= internalPath.size())
     {
         match = false;
