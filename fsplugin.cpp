@@ -490,9 +490,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(getPathLeaf(
         deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld
     ))
-        isOldFolder = true;
-    else 
     {
+        isOldFolder = true;
+    } else {
         bool isLeafFound = false;
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, OldName, leafOld)) isLeafFound = true;
@@ -566,10 +566,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     uint32_t leafNew;
     if(getPathLeaf(
         deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew
-    ))
+    )) {
         isNewExists = true;
-    else 
-    {
+    } else {
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
             isNewExists = true;
