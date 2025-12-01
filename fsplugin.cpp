@@ -287,12 +287,17 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
             return FS_FILE_USERABORT;
 
     wcharstring folderPath, fileName;
+    getFolderPath(internalPath, folderPath);
+    
+    // check if parent folder exists
+    uint32_t leaf;
+    if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
+        return FS_FILE_READERROR; // fail if parent folder was moved or renamed
+
     getFolderPath(RemoteName, folderPath);
     getFileName(RemoteName, fileName);
-
     bool isLeafFound = false;
-    uint32_t leaf;
-    // search and get leaf from cache (fro speed)
+    // search and get leaf from cache (for speed)
     PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
     if(cachedFolderItems != NULL)
     {
@@ -377,9 +382,26 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     if(gProgressProc(gPluginNumber, LocalName, RemoteName, 0) != 0) 
         return FS_FILE_USERABORT;
 
-    // check if file already exists
+    bool isLeafFound = false;
     uint32_t leaf;
-    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false)) 
+    // search and get leaf from cache (for speed)
+    getFolderPath(RemoteName, folderPath);
+    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
+    if(cachedFolderItems != NULL)
+    {
+        if(getLeafFromcachedFolderItems(cachedFolderItems->elementsCache, fileName, leaf))
+        { 
+            LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
+            if(file != NULL) 
+            {
+                if(file->parent_id == cachedFolderItems->leaf) isLeafFound = true;
+            }
+            LIBMTP_destroy_file_t(file);
+        }
+    }
+
+    // check if file already exists
+    if(isLeafFound) 
     {
         if(!(CopyFlags & FS_COPYFLAGS_OVERWRITE))
         {
@@ -409,8 +431,33 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
             device, UTF16toUTF8(LocalName).data(), genfile, progressFunc, &pData
         ) !=0
     ) {
-        LIBMTP_destroy_file_t(genfile);
-        return FS_FILE_WRITEERROR;
+        // if failed to put file
+        // check maybe it is failed because file already exists
+        // made this way for speed optimization
+        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
+        {
+            if(!(CopyFlags & FS_COPYFLAGS_OVERWRITE))
+            {
+                LIBMTP_destroy_file_t(genfile);
+                return FS_FILE_EXISTS;
+            } else {
+                // if overwrite flag is set (delete old file and upload new)
+                if(LIBMTP_Delete_Object(device, leaf) != 0) 
+                {
+                    LIBMTP_destroy_file_t(genfile);
+                    return FS_FILE_WRITEERROR;
+                }
+                if(LIBMTP_Send_File_From_File(
+                    device, UTF16toUTF8(LocalName).data(), genfile, progressFunc, &pData
+                ) !=0) {
+                    LIBMTP_destroy_file_t(genfile);
+                    return FS_FILE_WRITEERROR;
+                }
+            }
+        } else {
+            LIBMTP_destroy_file_t(genfile);
+            return FS_FILE_WRITEERROR;
+        }
     }
 
     LIBMTP_destroy_file_t(genfile);   
