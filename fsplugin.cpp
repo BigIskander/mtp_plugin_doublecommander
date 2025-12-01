@@ -491,10 +491,21 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld
     ))
         isOldFolder = true;
-    else if(!getPathLeaf(
-        deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld, false
-    ))
-        return FS_FILE_NOTFOUND;
+    else 
+    {
+        bool isLeafFound = false;
+        // search and get leaf from cache (for speed)
+        if(getLeafFromCachedFolder(deviceOld, OldName, leafOld)) isLeafFound = true;
+
+        if(!isLeafFound)
+        {
+            // if not in cache get leaf the old way
+            if(!getPathLeaf(
+                deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld, false
+            ))
+                return FS_FILE_NOTFOUND;
+        }
+    }
 
     // renaming file or folder if necessary
     if(folderPathNew == folderPathOld)
@@ -557,10 +568,12 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew
     ))
         isNewExists = true;
-    else if(getPathLeaf(
-        deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
-    ))
-        isNewExists = true;
+    else 
+    {
+        // search and get leaf from cache (for speed)
+        if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
+            isNewExists = true;
+    }
 
     if(isNewExists & !OverWrite)
         return FS_FILE_EXISTS;
@@ -598,6 +611,32 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
+        } else {
+            // if failed to move file
+            // check maybe it is failed because file already exists
+            // made this way for speed optimization
+            if(getPathLeaf(
+                deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
+            )) {
+                if(!OverWrite)
+                {
+                    return FS_FILE_EXISTS;
+                } else {
+                    // delete already existing file (to replace with new one)
+                    if(
+                        LIBMTP_Delete_Object(deviceOld, leafNew) != 0
+                    ) {
+                        return FS_FILE_WRITEERROR;
+                    }
+                    if(
+                        LIBMTP_Move_Object(
+                            deviceOld, leafOld, storageNew->id, parentLeafNew
+                        ) == 0
+                    ) {
+                        return FS_FILE_OK;
+                    }
+                }
+            }
         }
         return FS_FILE_WRITEERROR;
     } else {
@@ -608,11 +647,39 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
+        } else {
+            // if failed to copy file
+            // check maybe it is failed because file already exists
+            // made this way for speed optimization
+            if(getPathLeaf(
+                deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
+            )) {
+                if(!OverWrite)
+                {
+                    return FS_FILE_EXISTS;
+                } else {
+                    // delete already existing file (to replace with new one)
+                    if(
+                        LIBMTP_Delete_Object(deviceOld, leafNew) != 0
+                    ) {
+                        return FS_FILE_WRITEERROR;
+                    }
+                    if(
+                        LIBMTP_Copy_Object(
+                            deviceOld, leafOld, storageNew->id, parentLeafNew
+                        ) == 0
+                    ) {
+                        return FS_FILE_OK;
+                    }
+                }
+            } 
         }
         return FS_FILE_WRITEERROR;
     }
     
     return FS_FILE_OK;
+
+    
 }
 /* TODO: test this function with more than one storages */
 
