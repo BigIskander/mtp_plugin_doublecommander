@@ -58,6 +58,9 @@ struct AvailableDevice
 
 std::vector<AvailableDevice> availableDevices;
 
+void getFolderPath(wcharstring wPath, wcharstring& folderPath);
+void getFileName(wcharstring wPath, wcharstring& fileName);
+
 void filterConnectedDevices() {
     availableDevices.erase(std::remove_if(
         availableDevices.begin(),
@@ -327,6 +330,33 @@ bool getLeafFromcachedFolderItems(
     if(el == cachedFolderItems.end()) return false;
     leaf = (*el).leaf;
     return true;
+}
+
+bool getLeafFromCachedFolder(
+    LIBMTP_mtpdevice_t* device,
+    wcharstring path,
+    uint32_t& leaf
+) {
+    wcharstring folderPath, fileName;
+    getFolderPath(path, folderPath);
+    getFileName(path, fileName);
+    // get leaf from cache
+    bool isLeafFound = false;
+    // search and get leaf from cache (for speed)
+    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
+    if(cachedFolderItems != NULL)
+    {
+        if(getLeafFromcachedFolderItems(cachedFolderItems->elementsCache, fileName, leaf))
+        { 
+            LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
+            if(file != NULL) 
+            {
+                if(file->parent_id == cachedFolderItems->leaf) isLeafFound = true;
+            }
+            LIBMTP_destroy_file_t(file);
+        }
+    }
+    return isLeafFound;
 }
 
 bool getPathLeaf(

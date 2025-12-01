@@ -294,23 +294,9 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
         return FS_FILE_READERROR; // fail if parent folder was moved or renamed
 
-    getFolderPath(RemoteName, folderPath);
-    getFileName(RemoteName, fileName);
     bool isLeafFound = false;
     // search and get leaf from cache (for speed)
-    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
-    if(cachedFolderItems != NULL)
-    {
-        if(getLeafFromcachedFolderItems(cachedFolderItems->elementsCache, fileName, leaf))
-        { 
-            LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
-            if(file != NULL) 
-            {
-                if(file->parent_id == cachedFolderItems->leaf) isLeafFound = true;
-            }
-            LIBMTP_destroy_file_t(file);
-        }
-    }
+    if(getLeafFromCachedFolder(device, RemoteName, leaf)) isLeafFound = true;
     // if leaf not in cache get leaf the old way
     if(!isLeafFound)
     {
@@ -385,20 +371,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     bool isLeafFound = false;
     uint32_t leaf;
     // search and get leaf from cache (for speed)
-    getFolderPath(RemoteName, folderPath);
-    PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
-    if(cachedFolderItems != NULL)
-    {
-        if(getLeafFromcachedFolderItems(cachedFolderItems->elementsCache, fileName, leaf))
-        { 
-            LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
-            if(file != NULL) 
-            {
-                if(file->parent_id == cachedFolderItems->leaf) isLeafFound = true;
-            }
-            LIBMTP_destroy_file_t(file);
-        }
-    }
+    if(getLeafFromCachedFolder(device, RemoteName, leaf)) isLeafFound = true;
 
     // check if file already exists
     if(isLeafFound) 
