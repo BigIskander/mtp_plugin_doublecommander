@@ -54,6 +54,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     pResources pRes = NULL;
 
     wcharstring wPath(Path);
+    if(wPath.length() == 0) return (HANDLE)-1;
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // fix issue with traversing files and folders
@@ -266,7 +267,8 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(CopyFlags & FS_COPYFLAGS_RESUME) // resume copy not supported
         return FS_FILE_NOTSUPPORTED;
 
-    wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath, wLocal(LocalName);
+    if(wPath.length() == 0 || wLocal.length() == 0) return FS_FILE_OK; // just ignore this case
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // no copy file if it is root folder of plugin or if it is root folder of device (not supported)
@@ -329,7 +331,9 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
             && !(CopyFlags & FS_COPYFLAGS_OVERWRITE))  
         return FS_FILE_EXISTS;
     
-    wcharstring wPath(RemoteName), deviceName, storageName, internalPath, folderPath, fileName;
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath, 
+        folderPath, fileName, wLocal(LocalName);
+    if(wPath.length() == 0 || wLocal.length() == 0) return FS_FILE_OK; // just ignore this case
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // no copy file to root folder of plugin or to root folder of device (not supported)
@@ -412,6 +416,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
 int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWrite, RemoteInfoStruct* ri)
 {
     wcharstring wPathOld(OldName), wPathNew(NewName);
+    if(wPathOld.length() == 0 || wPathNew.length() == 0) return FS_FILE_OK; // just ignore this case
     wcharstring deviceNameOld, storageNameOld, internalPathOld, folderPathOld;
     wcharstring deviceNameNew, storageNameNew, internalPathNew, folderPathNew;
     std::replace(wPathOld.begin(), wPathOld.end(), u'\\', u'/');
@@ -600,6 +605,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 {
     wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    if(wPath.length() == 0) return true; // just ignore this case
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // no delete file if it is root folder of plugin or if it is root folder of device (not supported)
@@ -633,6 +639,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
 {
     wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    if(wPath.length() == 0) return true; // just ignore this case
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // no delete file if it is root folder of plugin or if it is root folder of device (not supported)
@@ -712,6 +719,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
 BOOL DCPCALL FsMkDirW(WCHAR* Path)
 {
     wcharstring wPath(Path), deviceName, storageName, internalPath, folderPath, fileName;
+    if(wPath.length() == 0) return true; // just ignore this case
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
 
     // no create folder in root folder of plugin or in root folder of device (not supported)
