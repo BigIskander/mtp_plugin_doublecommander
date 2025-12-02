@@ -294,35 +294,24 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
         return FS_FILE_READERROR; // fail if parent folder was moved or renamed
 
-    bool isLeafFound = false;
+    // make cache if cache not exists (skip this step otherwise)
+    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
     // search and get leaf from cache (for speed)
-    if(getLeafFromCachedFolder(device, RemoteName, leaf)) isLeafFound = true;
-    // if leaf not in cache get leaf the old way
-    if(!isLeafFound)
-    {
-        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
-        {
-            isLeafFound = true;
-        }
-    }
+    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+        return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
 
-    if(isLeafFound)
-    {
-        copyFromTo pData;
-        pData.From = RemoteName;
-        pData.To = LocalName;
-        if (
-            LIBMTP_Get_File_To_File(
-                device, leaf, UTF16toUTF8(LocalName).data(), progressFunc, &pData
-            ) != 0
-        ) {
-            return FS_FILE_READERROR;
-        }
-        gProgressProc(gPluginNumber, RemoteName, LocalName, 100);
-        return FS_FILE_OK;
+    copyFromTo pData;
+    pData.From = RemoteName;
+    pData.To = LocalName;
+    if (
+        LIBMTP_Get_File_To_File(
+            device, leaf, UTF16toUTF8(LocalName).data(), progressFunc, &pData
+        ) != 0
+    ) {
+        return FS_FILE_READERROR;
     }
-    
-    return FS_FILE_NOTFOUND;
+    gProgressProc(gPluginNumber, RemoteName, LocalName, 100);
+    return FS_FILE_OK;
 }
 
 int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
@@ -373,6 +362,12 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     // search and get leaf from cache (for speed)
     if(getLeafFromCachedFolder(device, RemoteName, leaf)) isLeafFound = true;
 
+    // make cache if cache not exists (skip this step otherwise)
+    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
+    // search and get leaf from cache (for speed)
+    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+        isLeafFound = true;
+
     // check if file already exists
     if(isLeafFound) 
     {
@@ -404,33 +399,8 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
             device, UTF16toUTF8(LocalName).data(), genfile, progressFunc, &pData
         ) !=0
     ) {
-        // if failed to put file
-        // check maybe it is failed because file already exists
-        // made this way for speed optimization
-        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
-        {
-            if(!(CopyFlags & FS_COPYFLAGS_OVERWRITE))
-            {
-                LIBMTP_destroy_file_t(genfile);
-                return FS_FILE_EXISTS;
-            } else {
-                // if overwrite flag is set (delete old file and upload new)
-                if(LIBMTP_Delete_Object(device, leaf) != 0) 
-                {
-                    LIBMTP_destroy_file_t(genfile);
-                    return FS_FILE_WRITEERROR;
-                }
-                if(LIBMTP_Send_File_From_File(
-                    device, UTF16toUTF8(LocalName).data(), genfile, progressFunc, &pData
-                ) !=0) {
-                    LIBMTP_destroy_file_t(genfile);
-                    return FS_FILE_WRITEERROR;
-                }
-            }
-        } else {
-            LIBMTP_destroy_file_t(genfile);
-            return FS_FILE_WRITEERROR;
-        }
+        LIBMTP_destroy_file_t(genfile);
+        return FS_FILE_WRITEERROR;
     }
 
     LIBMTP_destroy_file_t(genfile);   
@@ -493,18 +463,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     {
         isOldFolder = true;
     } else {
-        bool isLeafFound = false;
+        // make cache if cache not exists (skip this step otherwise)
+        makeParentFolderItemsCacheIfNotExists(deviceOld, storageOld, OldName); 
         // search and get leaf from cache (for speed)
-        if(getLeafFromCachedFolder(deviceOld, OldName, leafOld)) isLeafFound = true;
-
-        if(!isLeafFound)
-        {
-            // if not in cache get leaf the old way
-            if(!getPathLeaf(
-                deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld, false
-            ))
-                return FS_FILE_NOTFOUND;
-        }
+        if(!getLeafFromCachedFolder(deviceOld, OldName, leafOld))
+            return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
     }
 
     // renaming file or folder if necessary
@@ -569,12 +532,14 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     )) {
         isNewExists = true;
     } else {
+        // make cache if cache not exists (skip this step otherwise)
+        makeParentFolderItemsCacheIfNotExists(deviceOld, storageNew, NewName); 
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
             isNewExists = true;
     }
 
-    if(isNewExists & !OverWrite)
+    if(isNewExists && !OverWrite)
         return FS_FILE_EXISTS;
 
     wcharstring internalParentNew;
@@ -582,7 +547,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
     uint32_t parentLeafNew;
     if(!getPathLeaf(
-        deviceOld, storageOld, deviceNameOld, storageNameOld, internalParentNew, parentLeafNew
+        deviceOld, storageNew, deviceNameOld, storageNameNew, internalParentNew, parentLeafNew
     ))
         return FS_FILE_WRITEERROR;
 
@@ -610,33 +575,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
-        } else {
-            // if failed to move file
-            // check maybe it is failed because file already exists
-            // made this way for speed optimization
-            if(getPathLeaf(
-                deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
-            )) {
-                if(!OverWrite)
-                {
-                    return FS_FILE_EXISTS;
-                } else {
-                    // delete already existing file (to replace with new one)
-                    if(
-                        LIBMTP_Delete_Object(deviceOld, leafNew) != 0
-                    ) {
-                        return FS_FILE_WRITEERROR;
-                    }
-                    if(
-                        LIBMTP_Move_Object(
-                            deviceOld, leafOld, storageNew->id, parentLeafNew
-                        ) == 0
-                    ) {
-                        return FS_FILE_OK;
-                    }
-                }
-            }
-        }
+        } 
         return FS_FILE_WRITEERROR;
     } else {
         if(
@@ -646,39 +585,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
-        } else {
-            // if failed to copy file
-            // check maybe it is failed because file already exists
-            // made this way for speed optimization
-            if(getPathLeaf(
-                deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew, false
-            )) {
-                if(!OverWrite)
-                {
-                    return FS_FILE_EXISTS;
-                } else {
-                    // delete already existing file (to replace with new one)
-                    if(
-                        LIBMTP_Delete_Object(deviceOld, leafNew) != 0
-                    ) {
-                        return FS_FILE_WRITEERROR;
-                    }
-                    if(
-                        LIBMTP_Copy_Object(
-                            deviceOld, leafOld, storageNew->id, parentLeafNew
-                        ) == 0
-                    ) {
-                        return FS_FILE_OK;
-                    }
-                }
-            } 
-        }
+        } 
         return FS_FILE_WRITEERROR;
     }
     
-    return FS_FILE_OK;
-
-    
+    return FS_FILE_OK;    
 }
 /* TODO: test this function with more than one storages */
 

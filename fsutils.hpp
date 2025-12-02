@@ -58,8 +58,23 @@ struct AvailableDevice
 
 std::vector<AvailableDevice> availableDevices;
 
+void parsePath(
+    wcharstring wPath, 
+    wcharstring& deviceName, 
+    wcharstring& storageName, 
+    wcharstring& internalPath
+);
 void getFolderPath(wcharstring wPath, wcharstring& folderPath);
 void getFileName(wcharstring wPath, wcharstring& fileName);
+bool getPathLeaf(
+    LIBMTP_mtpdevice_t* device, 
+    LIBMTP_devicestorage_t* storage, 
+    wcharstring deviceName,
+    wcharstring storageName,
+    wcharstring internalPath, 
+    uint32_t& leaf,
+    bool isFolder = true
+);
 
 void filterConnectedDevices() {
     availableDevices.erase(std::remove_if(
@@ -332,6 +347,50 @@ bool getLeafFromcachedFolderItems(
     return true;
 }
 
+void makeParentFolderItemsCacheIfNotExists(
+    LIBMTP_mtpdevice_t* device, 
+    LIBMTP_devicestorage_t* storage, 
+    wcharstring path
+) {
+    wcharstring deviceName, storageName, internalPath, fullFolderPath, folderPath;
+    uint32_t leaf;
+    parsePath(path, deviceName, storageName, internalPath);
+    getFolderPath(path, fullFolderPath);
+    getFolderPath(internalPath, folderPath);
+    // check if cache already exists
+    PathFolderElement* pathCache = getPathFolderElement(device, fullFolderPath);
+    if(pathCache == NULL) 
+    { 
+        if(getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
+        {
+            pathCache = getPathFolderElement(device, fullFolderPath);
+        }
+    }
+    if(pathCache == NULL) return;
+    // check if folder content is cached
+    if(pathCache->elementsCache.size() == 0)
+    {
+        // if not cached, make cache
+        LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, pathCache->leaf);
+        if (file != NULL) 
+        {
+            LIBMTP_file_t *tmp;
+            int numOfEntries = 0;
+            PathElement pathE;
+            while (file != NULL) 
+            {
+                // add item to cache
+                pathE.leaf = file->item_id;
+                pathE.path = UTF8toUTF16(file->filename);
+                pathCache->elementsCache.push_back(pathE);
+                tmp = file;
+                file = file->next;
+                LIBMTP_destroy_file_t(tmp);
+            }
+        }
+    }
+}
+
 bool getLeafFromCachedFolder(
     LIBMTP_mtpdevice_t* device,
     wcharstring path,
@@ -366,7 +425,7 @@ bool getPathLeaf(
     wcharstring storageName,
     wcharstring internalPath, 
     uint32_t& leaf,
-    bool isFolder = true
+    bool isFolder
 )
 {
     if(device == NULL || storage == NULL) return false; // no device or no storage specified
