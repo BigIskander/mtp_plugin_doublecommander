@@ -101,6 +101,7 @@ void filterConnectedDevices() {
 }
 
 bool isDeviceNameTaken(wcharstring name) {
+    if(name.length() == 0) return true;
     return std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -172,6 +173,7 @@ void addDevice(LIBMTP_mtpdevice_t* newDevice) {
 
 LIBMTP_mtpdevice_t* getDevice(wcharstring name) 
 {
+    if(name.length() == 0) return NULL;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -187,6 +189,7 @@ LIBMTP_mtpdevice_t* getDevice(wcharstring name)
 LIBMTP_devicestorage_t* getStorage(LIBMTP_mtpdevice_t* device, wcharstring storageName) 
 {
     if(device == NULL) return NULL;
+    if(storageName.length() == 0) return NULL;
     LIBMTP_devicestorage_t* storage;
     int ret = LIBMTP_Get_Storage(device, LIBMTP_STORAGE_SORTBY_NOTSORTED);
     if(ret != 0) return NULL;
@@ -220,6 +223,7 @@ void getTopFolderName(wcharstring wPath, wcharstring& topFolderName, wcharstring
 
 void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf) {
     if(device == NULL) return;
+    if(path.length() == 0) return;
     if(path.substr(0, 1) != (WCHAR*)u"/") return;
     if(path.size() == 1) return;
     auto it = std::find_if(
@@ -238,6 +242,8 @@ void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf)
 }
 
 void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
+    if(device == NULL) return;
+    if(rPath.length() == 0) return;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -260,6 +266,7 @@ void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
 
 bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& leaf) {
     if(device == NULL) return false;
+    if(path.length() == 0) return false;
     if(path.substr(0, 1) != (WCHAR*)u"/") return false;
     if(path.size() <= 1) return false;
     auto it = std::find_if(
@@ -290,7 +297,6 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
         removeLeafsFromCache(device, path);
         return false;
     }
-    wcharstring folderName;
     size_t nPos = path.find_last_of((WCHAR*)u"/");
     if(path.substr(nPos + 1) != UTF8toUTF16(file->filename)) 
     {
@@ -306,6 +312,8 @@ PathFolderElement* getPathFolderElement(
     LIBMTP_mtpdevice_t* device, 
     wcharstring path
 ) {
+    if(device == NULL) return NULL;
+    if(path.length() == 0) return NULL;
     // find device in available devices list
     auto it = std::find_if(
         availableDevices.begin(), 
@@ -336,6 +344,8 @@ bool getLeafFromcachedFolderItems(
     wcharstring itemName,
     uint32_t& leaf
 ) {
+    if(cachedFolderItems.size() == 0) return false;
+    if(itemName.length() == 0) return false;
     auto el = std::find_if(
         cachedFolderItems.begin(),
         cachedFolderItems.end(),
@@ -350,6 +360,7 @@ bool getLeafFromcachedFolderItems(
 }
 
 void makeParentFolderItemsCacheIfNotExists(wcharstring path) {
+    if(path.length() == 0) return;
     wcharstring deviceName, storageName, internalPath;
     parsePath(path, deviceName, storageName, internalPath);
 
@@ -395,6 +406,7 @@ void makeParentFolderItemsCacheIfNotExists(wcharstring path) {
 }
 
 void makeFolderItemsCache(wcharstring folderPath) {
+    if(folderPath.length() == 0) return;
     wcharstring deviceName, storageName, internalPath;
     parsePath(folderPath, deviceName, storageName, internalPath);
 
@@ -442,6 +454,8 @@ bool getLeafFromCachedFolder(
     wcharstring path,
     uint32_t& leaf
 ) {
+    if(device == NULL) return false;
+    if(path.length() == 0) return false;
     wcharstring folderPath, fileName;
     getFolderPath(path, folderPath);
     getFileName(path, fileName);
@@ -475,6 +489,8 @@ bool getPathLeaf(
 )
 {
     if(device == NULL || storage == NULL) return false; // no device or no storage specified
+    if(deviceName.length() == 0 || storageName.length() == 0 || internalPath.length() == 0)
+        return false;
     if(internalPath.substr(0, 1).data() != UTF8toUTF16("/")) return false; // error incorrect path
     leaf = LIBMTP_FILES_AND_FOLDERS_ROOT; // is -1
     uint32_t tmpLeaf;
@@ -617,6 +633,7 @@ pResources showFilesAndFolders(
     //     (WCHAR*)folderPath.data()
     // );
     if(device == NULL || storage == NULL) return NULL;
+    if(folderPath.length() == 0) return NULL;
 
     // get and clear cache
     PathFolderElement *cachedFolderItems = getPathFolderElement(device, folderPath);
@@ -751,6 +768,10 @@ void parsePath(
 
 void getFolderPath(wcharstring wPath, wcharstring& folderPath)
 {
+    if(wPath.length() == 0) {
+        folderPath = (WCHAR*)u"/";
+        return;
+    }
     size_t nPos = wPath.find_last_of((WCHAR*)u"/");
     folderPath = wPath.substr(0, nPos);
     if(folderPath == (WCHAR*)u"") folderPath = (WCHAR*)u"/";
@@ -758,17 +779,23 @@ void getFolderPath(wcharstring wPath, wcharstring& folderPath)
 
 void getFileName(wcharstring wPath, wcharstring& fileName)
 {
+    if(wPath.length() == 0) {
+        fileName = (WCHAR*)u"";
+        return;
+    }
     size_t nPos = wPath.find_last_of((WCHAR*)u"/");
     fileName = wPath.substr(nPos + 1);
 }
 
 void addBusyFolder(wcharstring folder) 
 {
+    if(folder.length() == 0) return;
     busyFolders.push_back(folder);
 }
 
 void removeBusyFolder(wcharstring folder)
 {
+    if(folder.length() == 0) return;
     busyFolders.erase(std::remove_if(
         busyFolders.begin(),
         busyFolders.end(),
@@ -781,6 +808,7 @@ void removeBusyFolder(wcharstring folder)
 
 bool isFolderBusy(wcharstring folder)
 {
+    if(folder.length() == 0) return false;
     auto it = std::find_if(
         busyFolders.begin(), 
         busyFolders.end(), 
