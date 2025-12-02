@@ -261,7 +261,7 @@ void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
 bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& leaf) {
     if(device == NULL) return false;
     if(path.substr(0, 1) != (WCHAR*)u"/") return false;
-    if(path.size() == 1) return false;
+    if(path.size() <= 1) return false;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -690,7 +690,7 @@ void parsePath(
     wcharstring& internalPath
 )
 {
-    if(wPath.length() == 1) 
+    if(wPath.length() <= 1) // fix for wierd issue
     {
         deviceName = (WCHAR*)u"";
         storageName = (WCHAR*)u"";
@@ -698,6 +698,37 @@ void parsePath(
         return;
     }
 
+    // try
+    // {
+
+    // gLogProc(
+    //     gPluginNumber, 
+    //     MSGTYPE_IMPORTANTERROR, 
+    //     (WCHAR*)int_to_wcharstring(wPath.length()).data()
+    // );
+    //     /* code */
+    // size_t nPos = wPath.find((WCHAR*)u"/", 1);
+    // if(nPos == std::string::npos) 
+    // {
+    //     deviceName = wPath.substr(1);
+    //     storageName = (WCHAR*)u"";
+    //     internalPath = (WCHAR*)u"";
+    //     return;
+    // }
+    // deviceName = wPath.substr(1, nPos - 1);
+    
+    // }
+    // catch(const std::exception& e)
+    // {
+    //     gLogProc(
+    //         gPluginNumber, 
+    //         MSGTYPE_IMPORTANTERROR, 
+    //         (WCHAR*)UTF8toUTF16(e.what()).data()
+    //     );
+    //     return;
+    // }
+
+    // /* code */
     size_t nPos = wPath.find((WCHAR*)u"/", 1);
     if(nPos == std::string::npos) 
     {

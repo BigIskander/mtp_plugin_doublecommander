@@ -766,6 +766,8 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
 {
     if(InfoStartEnd == FS_STATUS_START) isBusy = true;
     wcharstring wPath(RemoteDir);
+    // fix for wierd issue when Double Commander sends RemoteDir as empty (basic_string)
+    if(wPath.length() == 0) return; 
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
     if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
     {
@@ -800,7 +802,7 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         {
             isRenMoveDCached = false;
             // make cache if cache not exists (skip this step otherwise) [move copy from folder]
-            makeParentFolderItemsCacheIfNotExists(RemoteDir); 
+            makeParentFolderItemsCacheIfNotExists(wPath); 
         }
     }
     // delete file or folder
@@ -809,7 +811,7 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         if(InfoStartEnd == FS_STATUS_START) 
         {
             // make cache if cache not exists (skip this step otherwise)
-            makeParentFolderItemsCacheIfNotExists(RemoteDir);
+            makeParentFolderItemsCacheIfNotExists(wPath);
         }
     }
     // mkdir
@@ -818,7 +820,7 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         if(InfoStartEnd == FS_STATUS_START)
         {
             // make cache if cache not exists (skip this step otherwise)
-            makeParentFolderItemsCacheIfNotExists(RemoteDir);
+            makeParentFolderItemsCacheIfNotExists(wPath);
         }
     }
     if(InfoStartEnd == FS_STATUS_END) isBusy = false;
