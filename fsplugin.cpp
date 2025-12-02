@@ -46,11 +46,12 @@ int DCPCALL FsInitW(
 LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
 bool isInit = false;
+bool isBusy = false;
+bool isRenMoveDCached = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
     pResources pRes = NULL;
-    int i;
 
     wcharstring wPath(Path);
     std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
@@ -59,6 +60,8 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
     {
         wPath = wPath.substr(0, wPath.size() - 1);
+        // ignore this kind of request when folder is busy, for speed
+        if(isFolderBusy(wPath)) return (HANDLE)-1; 
     }
 
     if(!isInit)
@@ -294,8 +297,6 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
     if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
         return FS_FILE_READERROR; // fail if parent folder was moved or renamed
 
-    // make cache if cache not exists (skip this step otherwise)
-    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
     // search and get leaf from cache (for speed)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
@@ -358,14 +359,9 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
         return FS_FILE_USERABORT;
 
     bool isLeafFound = false;
-    uint32_t leaf;
+    uint32_t leaf; 
     // search and get leaf from cache (for speed)
-    if(getLeafFromCachedFolder(device, RemoteName, leaf)) isLeafFound = true;
-
-    // make cache if cache not exists (skip this step otherwise)
-    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
-    // search and get leaf from cache (for speed)
-    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+    if(getLeafFromCachedFolder(device, RemoteName, leaf)) 
         isLeafFound = true;
 
     // check if file already exists
@@ -463,8 +459,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     {
         isOldFolder = true;
     } else {
-        // make cache if cache not exists (skip this step otherwise)
-        makeParentFolderItemsCacheIfNotExists(deviceOld, storageOld, OldName); 
         // search and get leaf from cache (for speed)
         if(!getLeafFromCachedFolder(deviceOld, OldName, leafOld))
             return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
@@ -525,6 +519,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     }
 
     // check if file or folder with destination path already exists
+    wcharstring parentFolderNew;
     bool isNewExists = false;
     uint32_t leafNew;
     if(getPathLeaf(
@@ -533,7 +528,12 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         isNewExists = true;
     } else {
         // make cache if cache not exists (skip this step otherwise)
-        makeParentFolderItemsCacheIfNotExists(deviceOld, storageNew, NewName); 
+        if(!isRenMoveDCached) {
+            getFolderPath(NewName, parentFolderNew);
+            makeFolderItemsCache(parentFolderNew);
+            isRenMoveDCached = true;
+        }
+        // makeParentFolderItemsCacheIfNotExists(deviceOld, storageNew, NewName); 
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
             isNewExists = true;
@@ -617,7 +617,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 
     uint32_t leaf;
     // make cache if cache not exists (skip this step otherwise)
-    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
+    // makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
     // search and get leaf from cache (for speed)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return false; // if it is not in cache it is not exists probably
@@ -741,7 +741,7 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
         return true;
     } else {
         // make cache if cache not exists (skip this step otherwise)
-        makeParentFolderItemsCacheIfNotExists(device, storage, Path); 
+        // makeParentFolderItemsCacheIfNotExists(device, storage, Path); 
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(device, Path, leaf))
             return false;      
@@ -761,7 +761,51 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     return true;
 }
     
-
+// managing cache in this function
+void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation)
+{
+    if(InfoStartEnd == FS_STATUS_START) isBusy = true;
+    wcharstring wPath(RemoteDir);
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+    if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
+    {
+        wPath = wPath.substr(0, wPath.size() - 1);
+    }
+    // get file or files
+    if(InfoOperation == FS_STATUS_OP_GET_SINGLE || InfoOperation == FS_STATUS_OP_GET_MULTI)
+    {
+        if(InfoStartEnd == FS_STATUS_START) 
+        {
+            // make cache if cache not exists (skip this step otherwise)
+            makeParentFolderItemsCacheIfNotExists(wPath);
+        }
+    }
+    // put file or files
+    if(InfoOperation == FS_STATUS_OP_PUT_SINGLE || InfoOperation == FS_STATUS_OP_PUT_MULTI)
+    {
+        if(InfoStartEnd == FS_STATUS_START) 
+        {
+            makeFolderItemsCache(wPath);
+            addBusyFolder(wPath);
+        }
+        if(InfoStartEnd == FS_STATUS_END) 
+        {
+            removeBusyFolder(wPath);
+        }  
+    }
+    // ren move file or folder
+    if(InfoOperation == FS_STATUS_OP_RENMOV_SINGLE || InfoOperation == FS_STATUS_OP_RENMOV_MULTI)
+    {
+        if(InfoStartEnd == FS_STATUS_START) 
+        {
+            isRenMoveDCached = false;
+            // make cache if cache not exists (skip this step otherwise) [move copy from folder]
+            makeParentFolderItemsCacheIfNotExists(RemoteDir); 
+        }
+    }
+    if(InfoStartEnd == FS_STATUS_END) isBusy = false;
+}
+    
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L9212 // thumbnail
 

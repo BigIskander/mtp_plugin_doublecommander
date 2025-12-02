@@ -58,6 +58,8 @@ struct AvailableDevice
 
 std::vector<AvailableDevice> availableDevices;
 
+std::vector<wcharstring> busyFolders;
+
 void parsePath(
     wcharstring wPath, 
     wcharstring& deviceName, 
@@ -347,23 +349,24 @@ bool getLeafFromcachedFolderItems(
     return true;
 }
 
-void makeParentFolderItemsCacheIfNotExists(
-    LIBMTP_mtpdevice_t* device, 
-    LIBMTP_devicestorage_t* storage, 
-    wcharstring path
-) {
-    wcharstring deviceName, storageName, internalPath, fullFolderPath, folderPath;
-    uint32_t leaf;
+void makeParentFolderItemsCacheIfNotExists(wcharstring path) {
+    wcharstring deviceName, storageName, internalPath;
     parsePath(path, deviceName, storageName, internalPath);
-    getFolderPath(path, fullFolderPath);
-    getFolderPath(internalPath, folderPath);
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL) return;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL) return;
+
+    uint32_t leaf;
     // check if cache already exists
-    PathFolderElement* pathCache = getPathFolderElement(device, fullFolderPath);
+    PathFolderElement* pathCache = getPathFolderElement(device, path);
     if(pathCache == NULL) 
     { 
-        if(getPathLeaf(device, storage, deviceName, storageName, folderPath, leaf))
+        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf))
         {
-            pathCache = getPathFolderElement(device, fullFolderPath);
+            pathCache = getPathFolderElement(device, path);
         }
     }
     if(pathCache == NULL) return;
@@ -387,6 +390,49 @@ void makeParentFolderItemsCacheIfNotExists(
                 file = file->next;
                 LIBMTP_destroy_file_t(tmp);
             }
+        }
+    }
+}
+
+void makeFolderItemsCache(wcharstring folderPath) {
+    wcharstring deviceName, storageName, internalPath;
+    parsePath(folderPath, deviceName, storageName, internalPath);
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL) return;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL) return;
+
+    // check if cache already exists
+    PathFolderElement* pathCache = getPathFolderElement(device, folderPath);
+    uint32_t leaf;
+    if(pathCache == NULL) 
+    { 
+        if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf))
+        {
+            pathCache = getPathFolderElement(device, folderPath);
+        }
+    }
+    if(pathCache == NULL) return;
+
+    // clear and make new cache
+    pathCache->elementsCache.clear();
+    LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, pathCache->leaf);
+    if (file != NULL) 
+    {
+        LIBMTP_file_t *tmp;
+        int numOfEntries = 0;
+        PathElement pathE;
+        while (file != NULL) 
+        {
+            // add item to cache
+            pathE.leaf = file->item_id;
+            pathE.path = UTF8toUTF16(file->filename);
+            pathCache->elementsCache.push_back(pathE);
+            tmp = file;
+            file = file->next;
+            LIBMTP_destroy_file_t(tmp);
         }
     }
 }
@@ -565,6 +611,11 @@ pResources showFilesAndFolders(
     uint32_t leaf
 ) 
 {
+    gLogProc(
+        gPluginNumber, 
+        MSGTYPE_CONNECT, 
+        (WCHAR*)folderPath.data()
+    );
     if(device == NULL || storage == NULL) return NULL;
 
     // get and clear cache
@@ -678,6 +729,37 @@ void getFileName(wcharstring wPath, wcharstring& fileName)
 {
     size_t nPos = wPath.find_last_of((WCHAR*)u"/");
     fileName = wPath.substr(nPos + 1);
+}
+
+void addBusyFolder(wcharstring folder) 
+{
+    busyFolders.push_back(folder);
+}
+
+void removeBusyFolder(wcharstring folder)
+{
+    busyFolders.erase(std::remove_if(
+        busyFolders.begin(),
+        busyFolders.end(),
+        [folder](const wcharstring& bFolder)
+        {
+            return folder == bFolder;
+        }
+    ), busyFolders.end());
+}
+
+bool isFolderBusy(wcharstring folder)
+{
+    auto it = std::find_if(
+        busyFolders.begin(), 
+        busyFolders.end(), 
+        [folder](const wcharstring& item) 
+        {
+            return item == folder;
+        }
+    );
+    if(it == busyFolders.end()) return false;
+    return true;
 }
 
 struct copyFromTo {
