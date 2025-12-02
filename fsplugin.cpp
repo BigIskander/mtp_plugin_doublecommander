@@ -47,7 +47,7 @@ LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
 bool isInit = false;
 bool isBusy = false;
-bool isRenMoveDCached = false;
+bool isRenMov = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -61,8 +61,8 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
     {
         wPath = wPath.substr(0, wPath.size() - 1);
-        // ignore this kind of request when folder is busy, for speed
-        if(isFolderBusy(wPath)) return (HANDLE)-1; 
+        // ignore this kind of request when is busy, for speed
+        if(isBusy && !isRenMov) return (HANDLE)-1;
     }
 
     if(!isInit)
@@ -537,11 +537,12 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     )) {
         isNewExists = true;
     } else {
+        getFolderPath(NewName, parentFolderNew);
         // make cache if cache not exists (skip this step otherwise)
-        if(!isRenMoveDCached) {
-            getFolderPath(NewName, parentFolderNew);
+        if(isFolderBusy(parentFolderNew)) 
+        {
             makeFolderItemsCache(parentFolderNew);
-            isRenMoveDCached = true;
+            addBusyFolder(parentFolderNew);
         }
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
@@ -597,10 +598,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         } 
         return FS_FILE_WRITEERROR;
     }
-    
-    return FS_FILE_OK;    
 }
-/* TODO: test this function with more than one storages */
 
 BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 {
@@ -796,11 +794,6 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         if(InfoStartEnd == FS_STATUS_START) 
         {
             makeFolderItemsCache(wPath);
-            addBusyFolder(wPath);
-        }
-        if(InfoStartEnd == FS_STATUS_END) 
-        {
-            removeBusyFolder(wPath);
         }  
     }
     // ren move file or folder
@@ -808,9 +801,14 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
     {
         if(InfoStartEnd == FS_STATUS_START) 
         {
-            isRenMoveDCached = false;
+            isRenMov = true;
             // make cache if cache not exists (skip this step otherwise) [move copy from folder]
-            makeParentFolderItemsCacheIfNotExists(wPath); 
+            makeParentFolderItemsCacheIfNotExists(wPath);
+            busyFolders.clear(); 
+        }
+        if(InfoStartEnd == FS_STATUS_END)
+        {
+            isRenMov = false;
         }
     }
     // delete file or folder

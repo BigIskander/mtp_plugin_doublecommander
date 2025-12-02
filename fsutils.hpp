@@ -793,19 +793,6 @@ void addBusyFolder(wcharstring folder)
     busyFolders.push_back(folder);
 }
 
-void removeBusyFolder(wcharstring folder)
-{
-    if(folder.length() == 0) return;
-    busyFolders.erase(std::remove_if(
-        busyFolders.begin(),
-        busyFolders.end(),
-        [folder](const wcharstring& bFolder)
-        {
-            return folder == bFolder;
-        }
-    ), busyFolders.end());
-}
-
 bool isFolderBusy(wcharstring folder)
 {
     if(folder.length() == 0) return false;
