@@ -616,8 +616,11 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
         return false;
 
     uint32_t leaf;
-    if(!getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false)) 
-        return false;
+    // make cache if cache not exists (skip this step otherwise)
+    makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
+    // search and get leaf from cache (for speed)
+    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+        return false; // if it is not in cache it is not exists probably
     
     if(LIBMTP_Delete_Object(device, leaf) != 0) 
         return false;
@@ -734,9 +737,15 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     // check if folder or file already exists
     uint32_t leaf;
     if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
+    {
         return true;
-    else if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf, false))
-        return false;
+    } else {
+        // make cache if cache not exists (skip this step otherwise)
+        makeParentFolderItemsCacheIfNotExists(device, storage, Path); 
+        // search and get leaf from cache (for speed)
+        if(getLeafFromCachedFolder(device, Path, leaf))
+            return false;      
+    }
 
     getFileName(internalPath, fileName);
 
