@@ -611,11 +611,11 @@ pResources showFilesAndFolders(
     uint32_t leaf
 ) 
 {
-    gLogProc(
-        gPluginNumber, 
-        MSGTYPE_CONNECT, 
-        (WCHAR*)folderPath.data()
-    );
+    // gLogProc(
+    //     gPluginNumber, 
+    //     MSGTYPE_CONNECT, 
+    //     (WCHAR*)folderPath.data()
+    // );
     if(device == NULL || storage == NULL) return NULL;
 
     // get and clear cache
