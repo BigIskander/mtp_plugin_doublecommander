@@ -46,8 +46,7 @@ int DCPCALL FsInitW(
 LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
 bool isInit = false;
-bool isBusy = false;
-bool isRenMov = false;
+bool isPut = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -62,7 +61,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     {
         wPath = wPath.substr(0, wPath.size() - 1);
         // ignore this kind of request when is busy, for speed
-        if(isBusy && !isRenMov) return (HANDLE)-1;
+        if(isPut) return (HANDLE)-1;
     }
 
     if(!isInit)
@@ -770,7 +769,6 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
 // managing cache in this function
 void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation)
 {
-    if(InfoStartEnd == FS_STATUS_START) isBusy = true;
     wcharstring wPath(RemoteDir);
     // fix for wierd issue when Double Commander sends RemoteDir as empty (basic_string)
     if(wPath.length() == 0) return; 
@@ -793,22 +791,22 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
     {
         if(InfoStartEnd == FS_STATUS_START) 
         {
+            isPut = true;
             makeFolderItemsCache(wPath);
         }  
+        if(InfoStartEnd == FS_STATUS_END) 
+        {
+            isPut = false;
+        }
     }
     // ren move file or folder
     if(InfoOperation == FS_STATUS_OP_RENMOV_SINGLE || InfoOperation == FS_STATUS_OP_RENMOV_MULTI)
     {
         if(InfoStartEnd == FS_STATUS_START) 
         {
-            isRenMov = true;
             // make cache if cache not exists (skip this step otherwise) [move copy from folder]
             makeParentFolderItemsCacheIfNotExists(wPath);
             busyFolders.clear(); 
-        }
-        if(InfoStartEnd == FS_STATUS_END)
-        {
-            isRenMov = false;
         }
     }
     // delete file or folder
@@ -829,7 +827,6 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
             makeParentFolderItemsCacheIfNotExists(wPath);
         }
     }
-    if(InfoStartEnd == FS_STATUS_END) isBusy = false;
 }
     
     // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
