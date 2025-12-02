@@ -538,7 +538,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
             makeFolderItemsCache(parentFolderNew);
             isRenMoveDCached = true;
         }
-        // makeParentFolderItemsCacheIfNotExists(deviceOld, storageNew, NewName); 
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
             isNewExists = true;
@@ -620,9 +619,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
     if(storage == NULL)
         return false;
 
-    uint32_t leaf;
-    // make cache if cache not exists (skip this step otherwise)
-    // makeParentFolderItemsCacheIfNotExists(device, storage, RemoteName); 
+    uint32_t leaf;  
     // search and get leaf from cache (for speed)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return false; // if it is not in cache it is not exists probably
@@ -745,8 +742,6 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     {
         return true;
     } else {
-        // make cache if cache not exists (skip this step otherwise)
-        // makeParentFolderItemsCacheIfNotExists(device, storage, Path); 
         // search and get leaf from cache (for speed)
         if(getLeafFromCachedFolder(device, Path, leaf))
             return false;      
@@ -806,6 +801,24 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
             isRenMoveDCached = false;
             // make cache if cache not exists (skip this step otherwise) [move copy from folder]
             makeParentFolderItemsCacheIfNotExists(RemoteDir); 
+        }
+    }
+    // delete file or folder
+    if(InfoOperation == FS_STATUS_OP_DELETE)
+    {
+        if(InfoStartEnd == FS_STATUS_START) 
+        {
+            // make cache if cache not exists (skip this step otherwise)
+            makeParentFolderItemsCacheIfNotExists(RemoteDir);
+        }
+    }
+    // mkdir
+    if(InfoOperation == FS_STATUS_OP_MKDIR)
+    {
+        if(InfoStartEnd == FS_STATUS_START)
+        {
+            // make cache if cache not exists (skip this step otherwise)
+            makeParentFolderItemsCacheIfNotExists(RemoteDir);
         }
     }
     if(InfoStartEnd == FS_STATUS_END) isBusy = false;
