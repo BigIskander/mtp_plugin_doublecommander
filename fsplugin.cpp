@@ -60,7 +60,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     if(wPath.size() > 1 && wPath.substr(wPath.size() - 1) == (WCHAR*)u"/")
     {
         wPath = wPath.substr(0, wPath.size() - 1);
-        // ignore this kind of request when is busy, for speed
+        // ignore this kind of request when put files, for speed
         if(isPut) return (HANDLE)-1;
     }
 
@@ -191,7 +191,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                     } else {
                         gLogProc(
                             gPluginNumber, 
-                            MSGTYPE_IMPORTANTERROR, 
+                            MSGTYPE_DETAILS, 
                             (WCHAR*) wcharstring((WCHAR*)u"MTP device \"")
                                 .append(deviceName)
                                 .append((WCHAR*)u"\" storage name \"")
@@ -460,6 +460,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         if(storageOld == NULL)
             return FS_FILE_NOTFOUND;
 
+    // TODO: speed up this part>>
     bool isOldFolder = false;
     uint32_t leafOld;
     if(getPathLeaf(
@@ -527,6 +528,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
             return FS_FILE_WRITEERROR;
     }
 
+    // TODO: speed up this part>>
     // check if file or folder with destination path already exists
     wcharstring parentFolderNew;
     bool isNewExists = false;
@@ -538,7 +540,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     } else {
         getFolderPath(NewName, parentFolderNew);
         // make cache if cache not exists (skip this step otherwise)
-        if(isFolderBusy(parentFolderNew)) 
+        if(!isFolderBusy(parentFolderNew)) 
         {
             makeFolderItemsCache(parentFolderNew);
             addBusyFolder(parentFolderNew);
@@ -627,6 +629,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return false; // if it is not in cache it is not exists probably
     
+    /* TODO: check if it is a file? */
     if(LIBMTP_Delete_Object(device, leaf) != 0) 
         return false;
 
@@ -656,6 +659,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
     if(storage == NULL)
         return false;
 
+    // TODO: speed up this part>>
     uint32_t leaf;
     if(!getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
         return false;
@@ -669,6 +673,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
         // recursively deleting content of folder
         while (files != NULL)
         {
+            tmp = files;
             if(files->filetype == LIBMTP_FILETYPE_FOLDER) 
             {
                 if(!FsRemoveDirW(
@@ -679,7 +684,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
                             .data()
                     )
                 ) {
-                    LIBMTP_destroy_file_t(files);
+                    LIBMTP_destroy_file_t(tmp);
                     return false;
                 }
             } else {
@@ -691,13 +696,12 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
                             .data()
                     )
                 ) {
-                    LIBMTP_destroy_file_t(files);
+                    LIBMTP_destroy_file_t(tmp);
                     return false;
                 }
             }
-            tmp = files;
             files = files->next;
-            LIBMTP_destroy_file_t(tmp);
+            if(tmp != NULL) LIBMTP_destroy_file_t(tmp);
         }
         // maybe it doesnt even necessary 
         // Double Commander itself calls deletion functions recursevelly
@@ -741,6 +745,7 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, folderLeaf))
         return false;
 
+    // TODO: speed up this part>>
     // check if folder or file already exists
     uint32_t leaf;
     if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 

@@ -223,9 +223,8 @@ void getTopFolderName(wcharstring wPath, wcharstring& topFolderName, wcharstring
 
 void addLeafToCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t leaf) {
     if(device == NULL) return;
-    if(path.length() == 0) return;
+    if(path.length() <= 1) return;
     if(path.substr(0, 1) != (WCHAR*)u"/") return;
-    if(path.size() == 1) return;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -266,9 +265,8 @@ void removeLeafsFromCache(LIBMTP_mtpdevice_t* device, wcharstring rPath) {
 
 bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& leaf) {
     if(device == NULL) return false;
-    if(path.length() == 0) return false;
+    if(path.length() <= 1) return false;
     if(path.substr(0, 1) != (WCHAR*)u"/") return false;
-    if(path.size() <= 1) return false;
     auto it = std::find_if(
         availableDevices.begin(), 
         availableDevices.end(), 
@@ -291,13 +289,17 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
     leaf = (*cacheItem).leaf;
     // check if path exists and name matches
     LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
-    if(file == NULL) return false;
+    if(file == NULL) {
+        removeLeafsFromCache(device, path);
+        return false;
+    }
     if(file->filetype != LIBMTP_FILETYPE_FOLDER) {
         LIBMTP_destroy_file_t(file);
         removeLeafsFromCache(device, path);
         return false;
     }
     size_t nPos = path.find_last_of((WCHAR*)u"/");
+    if(nPos == std::string::npos) nPos = -1; // can crash the app if unchecked
     if(path.substr(nPos + 1) != UTF8toUTF16(file->filename)) 
     {
         LIBMTP_destroy_file_t(file);
@@ -557,7 +559,6 @@ bool getPathLeaf(
                     LIBMTP_destroy_file_t(files);
                     return true; // leaf found
                 }
-                subFolder = subFolder;
                 LIBMTP_destroy_file_t(files);
                 break;
             }
@@ -784,6 +785,7 @@ void getFileName(wcharstring wPath, wcharstring& fileName)
         return;
     }
     size_t nPos = wPath.find_last_of((WCHAR*)u"/");
+    if(nPos == std::string::npos) nPos = -1; // can crash the app if unchecked
     fileName = wPath.substr(nPos + 1);
 }
 
@@ -814,6 +816,7 @@ struct copyFromTo {
 };
 
 // progress function
+// TODO: experiment with this function, try to return non 0 value
 int progressFunc(const uint64_t sent, const uint64_t total, const void *pData)
 {
     gProgressProc(
