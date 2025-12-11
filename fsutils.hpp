@@ -816,7 +816,6 @@ struct copyFromTo {
 };
 
 // progress function
-// TODO: experiment with this function, try to return non 0 value
 int progressFunc(const uint64_t sent, const uint64_t total, const void *pData)
 {
     gProgressProc(

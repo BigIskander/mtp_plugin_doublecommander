@@ -460,19 +460,16 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         if(storageOld == NULL)
             return FS_FILE_NOTFOUND;
 
-    // TODO: speed up this part>>
     bool isOldFolder = false;
     uint32_t leafOld;
-    if(getPathLeaf(
-        deviceOld, storageOld, deviceNameOld, storageNameOld, internalPathOld, leafOld
-    ))
-    {
-        isOldFolder = true;
-    } else {
-        // search and get leaf from cache (for speed)
-        if(!getLeafFromCachedFolder(deviceOld, OldName, leafOld))
-            return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
-    }
+    // search and get leaf from cache (for speed)
+    if(!getLeafFromCachedFolder(deviceOld, OldName, leafOld))
+        return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
+    
+    // detect is it folder or not
+    LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(deviceOld, leafOld);
+    isOldFolder = file->filetype == LIBMTP_FILETYPE_FOLDER;
+    LIBMTP_destroy_file_t(file);
 
     // renaming file or folder if necessary
     if(folderPathNew == folderPathOld)
@@ -528,26 +525,25 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
             return FS_FILE_WRITEERROR;
     }
 
-    // TODO: speed up this part>>
-    // check if file or folder with destination path already exists
     wcharstring parentFolderNew;
     bool isNewExists = false;
+    bool isNewFolder = false;
     uint32_t leafNew;
-    if(getPathLeaf(
-        deviceOld, storageNew, deviceNameOld, storageNameNew, internalPathNew, leafNew
-    )) {
+    getFolderPath(NewName, parentFolderNew);
+    // make cache if cache not exists (skip this step otherwise)
+    if(!isFolderBusy(parentFolderNew)) 
+    {
+        makeFolderItemsCache(parentFolderNew);
+        addBusyFolder(parentFolderNew);
+    }
+    // search and get leaf from cache (for speed)
+    if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
+    {
         isNewExists = true;
-    } else {
-        getFolderPath(NewName, parentFolderNew);
-        // make cache if cache not exists (skip this step otherwise)
-        if(!isFolderBusy(parentFolderNew)) 
-        {
-            makeFolderItemsCache(parentFolderNew);
-            addBusyFolder(parentFolderNew);
-        }
-        // search and get leaf from cache (for speed)
-        if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
-            isNewExists = true;
+        // detect is it folder or not
+        file = LIBMTP_Get_Filemetadata(deviceOld, leafNew);
+        isNewFolder = file->filetype == LIBMTP_FILETYPE_FOLDER;
+        LIBMTP_destroy_file_t(file);
     }
 
     if(isNewExists && !OverWrite)
@@ -567,13 +563,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
     if(isNewExists & OverWrite)
     {
-        // delete already existing file (to replace with new one)
-        if(
-            LIBMTP_Delete_Object(deviceOld, leafNew) != 0
-        ) 
-        {
-            return FS_FILE_WRITEERROR;
-        }
+        // delete already existing file or folder (to replace with new one)
+        if(isNewFolder)
+            FsRemoveDirW(NewName);
+        else
+            FsDeleteFileW(NewName);
     }
 
     // move or copy the file
@@ -629,7 +623,15 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return false; // if it is not in cache it is not exists probably
     
-    /* TODO: check if it is a file? */
+    // detect is it folder or not (do not delete if it is a folder)
+    LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
+    if(file->filetype == LIBMTP_FILETYPE_FOLDER)
+    {
+        LIBMTP_destroy_file_t(file);
+        return false;
+    }
+    LIBMTP_destroy_file_t(file);
+
     if(LIBMTP_Delete_Object(device, leaf) != 0) 
         return false;
 
@@ -659,9 +661,9 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
     if(storage == NULL)
         return false;
 
-    // TODO: speed up this part>>
     uint32_t leaf;
-    if(!getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
+    // search and get leaf from cache (for speed)
+    if(!getLeafFromCachedFolder(device, wPath, leaf))
         return false;
     
     // Check if folder is empty
@@ -745,16 +747,20 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     if(!getPathLeaf(device, storage, deviceName, storageName, folderPath, folderLeaf))
         return false;
 
-    // TODO: speed up this part>>
     // check if folder or file already exists
     uint32_t leaf;
-    if(getPathLeaf(device, storage, deviceName, storageName, internalPath, leaf)) 
+    // search and get leaf from cache (for speed)
+    if(getLeafFromCachedFolder(device, wPath, leaf))
     {
-        return true;
-    } else {
-        // search and get leaf from cache (for speed)
-        if(getLeafFromCachedFolder(device, Path, leaf))
-            return false;      
+        // detect is it folder or not
+        LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
+        if(file->filetype == LIBMTP_FILETYPE_FOLDER)
+        {
+            LIBMTP_destroy_file_t(file);
+            return true;
+        }
+        LIBMTP_destroy_file_t(file);
+        return false;
     }
 
     getFileName(internalPath, fileName);
