@@ -379,11 +379,17 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
         {
             return FS_FILE_EXISTS;
         } else {
-            // delete already existing file (to replace with new one)
-            if(LIBMTP_Delete_Object(device, leaf) != 0) 
-            {
-                return FS_FILE_WRITEERROR;
-            }
+            // detect is it folder or not
+            bool isFolder = false;
+            LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
+            isFolder = file->filetype == LIBMTP_FILETYPE_FOLDER;
+            LIBMTP_destroy_file_t(file);
+
+            // delete already existing file or folder (to replace with new one)
+            if(isFolder)
+                FsRemoveDirW((WCHAR*)wPath.data());
+            else
+                FsDeleteFileW((WCHAR*)wPath.data());
         }
     }
 
@@ -565,9 +571,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     {
         // delete already existing file or folder (to replace with new one)
         if(isNewFolder)
-            FsRemoveDirW(NewName);
+            FsRemoveDirW((WCHAR*)wPathNew.data());
         else
-            FsDeleteFileW(NewName);
+            FsDeleteFileW((WCHAR*)wPathNew.data());
     }
 
     // move or copy the file
