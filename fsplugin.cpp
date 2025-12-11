@@ -379,17 +379,9 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
         {
             return FS_FILE_EXISTS;
         } else {
-            // detect is it folder or not
-            bool isFolder = false;
-            LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
-            isFolder = file->filetype == LIBMTP_FILETYPE_FOLDER;
-            LIBMTP_destroy_file_t(file);
-
             // delete already existing file or folder (to replace with new one)
-            if(isFolder)
-                FsRemoveDirW((WCHAR*)wPath.data());
-            else
-                FsDeleteFileW((WCHAR*)wPath.data());
+            if(!deleteFileOrFolder(device, storage, leaf))
+                return FS_FILE_WRITEERROR;
         }
     }
 
@@ -533,7 +525,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
 
     wcharstring parentFolderNew;
     bool isNewExists = false;
-    bool isNewFolder = false;
     uint32_t leafNew;
     getFolderPath(NewName, parentFolderNew);
     // make cache if cache not exists (skip this step otherwise)
@@ -544,13 +535,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     }
     // search and get leaf from cache (for speed)
     if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
-    {
         isNewExists = true;
-        // detect is it folder or not
-        file = LIBMTP_Get_Filemetadata(deviceOld, leafNew);
-        isNewFolder = file->filetype == LIBMTP_FILETYPE_FOLDER;
-        LIBMTP_destroy_file_t(file);
-    }
 
     if(isNewExists && !OverWrite)
         return FS_FILE_EXISTS;
@@ -570,10 +555,8 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(isNewExists & OverWrite)
     {
         // delete already existing file or folder (to replace with new one)
-        if(isNewFolder)
-            FsRemoveDirW((WCHAR*)wPathNew.data());
-        else
-            FsDeleteFileW((WCHAR*)wPathNew.data());
+        if(!deleteFileOrFolder(deviceOld, storageNew, leafNew))
+            return FS_FILE_WRITEERROR;
     }
 
     // move or copy the file
@@ -629,16 +612,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
     if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
         return false; // if it is not in cache it is not exists probably
     
-    // detect is it folder or not (do not delete if it is a folder)
-    LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
-    if(file->filetype == LIBMTP_FILETYPE_FOLDER)
-    {
-        LIBMTP_destroy_file_t(file);
-        return false;
-    }
-    LIBMTP_destroy_file_t(file);
-
-    if(LIBMTP_Delete_Object(device, leaf) != 0) 
+    if(!deleteFileOrFolder(device, storage, leaf)) 
         return false;
 
     return true;
@@ -672,51 +646,8 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
     if(!getLeafFromCachedFolder(device, wPath, leaf))
         return false;
     
-    // Check if folder is empty
-    LIBMTP_file_t *files, *tmp;
-    files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
-    if (files != NULL) 
-    {
-        // delete non empty folder not rocommended
-        // recursively deleting content of folder
-        while (files != NULL)
-        {
-            tmp = files;
-            if(files->filetype == LIBMTP_FILETYPE_FOLDER) 
-            {
-                if(!FsRemoveDirW(
-                        (WCHAR*)UTF8toUTF16("")
-                            .append(RemoteName)
-                            .append((WCHAR*)u"/")
-                            .append(UTF8toUTF16(files->filename))
-                            .data()
-                    )
-                ) {
-                    LIBMTP_destroy_file_t(tmp);
-                    return false;
-                }
-            } else {
-                if(!FsDeleteFileW(
-                        (WCHAR*)UTF8toUTF16("")
-                            .append(RemoteName)
-                            .append((WCHAR*)u"/")
-                            .append(UTF8toUTF16(files->filename))
-                            .data()
-                    )
-                ) {
-                    LIBMTP_destroy_file_t(tmp);
-                    return false;
-                }
-            }
-            files = files->next;
-            if(tmp != NULL) LIBMTP_destroy_file_t(tmp);
-        }
-        // maybe it doesnt even necessary 
-        // Double Commander itself calls deletion functions recursevelly
-    }
-
-    // remove folder after it's content is empty
-    if(LIBMTP_Delete_Object(device, leaf) != 0) 
+    // Delete folder
+    if(!deleteFileOrFolder(device, storage, leaf))
         return false;
     
     // remove folder from cache after deletion

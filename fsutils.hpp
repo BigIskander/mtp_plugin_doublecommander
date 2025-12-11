@@ -827,4 +827,33 @@ int progressFunc(const uint64_t sent, const uint64_t total, const void *pData)
     return 0;
 }
 
+// delete file or folder
+bool deleteFileOrFolder(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* storage, uint32_t leaf)
+{
+    if(device == NULL || storage == NULL) return false;
+    LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
+    if(file->filetype != LIBMTP_FILETYPE_FOLDER) {
+        LIBMTP_destroy_file_t(file);
+        // just delete file
+        if(LIBMTP_Delete_Object(device, leaf) == 0)
+            return true;
+        else
+            return false;
+    } else {
+        LIBMTP_destroy_file_t(file);
+        // check if folder is empty
+        LIBMTP_file_t* innerFiles = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
+        if(innerFiles == NULL)
+        {
+            // delete folder if it is empty
+            if(LIBMTP_Delete_Object(device, leaf) != 0)
+                return false;
+            else
+                return true;
+        }
+        LIBMTP_destroy_file_t(innerFiles);
+        return false;
+    }
+}
+
 #endif
