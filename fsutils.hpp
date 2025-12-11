@@ -832,6 +832,7 @@ bool deleteFileOrFolder(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* stor
 {
     if(device == NULL || storage == NULL) return false;
     LIBMTP_file_t* file = LIBMTP_Get_Filemetadata(device, leaf);
+    if(file == NULL) return false;
     if(file->filetype != LIBMTP_FILETYPE_FOLDER) {
         LIBMTP_destroy_file_t(file);
         // just delete file
