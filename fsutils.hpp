@@ -27,7 +27,6 @@ License along with this library; if not, write to the Free Software
 #include "fsplugin.h"
 #include "utils.hpp"
 #include <libmtp.h>
-// #include <chrono>
 
 // Doublecommander API callback functions
 int gPluginNumber;
@@ -391,7 +390,6 @@ void makeParentFolderItemsCacheIfNotExists(wcharstring path) {
         if (file != NULL) 
         {
             LIBMTP_file_t *tmp;
-            int numOfEntries = 0;
             PathElement pathE;
             while (file != NULL) 
             {
@@ -436,7 +434,6 @@ void makeFolderItemsCache(wcharstring folderPath) {
     if (file != NULL) 
     {
         LIBMTP_file_t *tmp;
-        int numOfEntries = 0;
         PathElement pathE;
         while (file != NULL) 
         {
@@ -628,11 +625,6 @@ pResources showFilesAndFolders(
     uint32_t leaf
 ) 
 {
-    // gLogProc(
-    //     gPluginNumber, 
-    //     MSGTYPE_CONNECT, 
-    //     (WCHAR*)folderPath.data()
-    // );
     if(device == NULL || storage == NULL) return NULL;
     if(folderPath.length() == 0) return NULL;
 
@@ -645,7 +637,6 @@ pResources showFilesAndFolders(
     files = LIBMTP_Get_Files_And_Folders(device, storage->id, leaf);
     if (files != NULL) 
     {
-        // auto t1 = std::chrono::high_resolution_clock::now();
         LIBMTP_file_t *file;
         file = files;
         int numOfEntries = 0;
@@ -689,13 +680,6 @@ pResources showFilesAndFolders(
             file = file->next;
             LIBMTP_destroy_file_t(tmp);
         }
-        // auto t2 = std::chrono::high_resolution_clock::now();
-        // int ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-        // gLogProc(
-        //     gPluginNumber, 
-        //     MSGTYPE_CONNECT, 
-        //     (WCHAR*)int_to_wcharstring(ms_int).data()
-        // );
         return pRes;
     }
     return NULL;
@@ -716,37 +700,6 @@ void parsePath(
         return;
     }
 
-    // try
-    // {
-
-    // gLogProc(
-    //     gPluginNumber, 
-    //     MSGTYPE_IMPORTANTERROR, 
-    //     (WCHAR*)int_to_wcharstring(wPath.length()).data()
-    // );
-    //     /* code */
-    // size_t nPos = wPath.find((WCHAR*)u"/", 1);
-    // if(nPos == std::string::npos) 
-    // {
-    //     deviceName = wPath.substr(1);
-    //     storageName = (WCHAR*)u"";
-    //     internalPath = (WCHAR*)u"";
-    //     return;
-    // }
-    // deviceName = wPath.substr(1, nPos - 1);
-    
-    // }
-    // catch(const std::exception& e)
-    // {
-    //     gLogProc(
-    //         gPluginNumber, 
-    //         MSGTYPE_IMPORTANTERROR, 
-    //         (WCHAR*)UTF8toUTF16(e.what()).data()
-    //     );
-    //     return;
-    // }
-
-    // /* code */
     size_t nPos = wPath.find((WCHAR*)u"/", 1);
     if(nPos == std::string::npos) 
     {
@@ -856,5 +809,7 @@ bool deleteFileOrFolder(LIBMTP_mtpdevice_t* device, LIBMTP_devicestorage_t* stor
         return false;
     }
 }
+
+
 
 #endif
