@@ -113,11 +113,6 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_NONE:
                 {
-                    gLogProc(
-                        gPluginNumber, 
-                        MSGTYPE_CONNECT, 
-                        (WCHAR*)u"Ok"
-                    );
                     LIBMTP_mtpdevice_t *newDevice;
                     filterConnectedDevices();
                     for(int i = 0; i < numrawdevices; i++) {
@@ -776,7 +771,6 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         }
     }
 }
-    
-    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L8910 // representative sample format
-    // https://github.com/libmtp/libmtp/blob/master/src/libmtp.c#L9212 // thumbnail
+
+
 
