@@ -77,6 +77,29 @@ bool getPathLeaf(
     bool isFolder = true
 );
 
+// print content of cache used for debug only
+void printCacheContent() {
+    try
+    {
+        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*)u"Device:");
+        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*)availableDevices[0].name.data());
+        auto cache = availableDevices[0].leafCache;
+        for(int i = 0; i < cache.size(); i++)
+        {
+            gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)cache[i].path.data());
+            auto subCache = cache[i].elementsCache;
+            for(int j = 0; j < subCache.size(); j++)
+            {
+                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)subCache[j].path.data());
+            }
+        }
+    }
+    catch(const std::exception& e)
+    {
+        gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)UTF8toUTF16(e.what()).data());
+    }  
+}
+
 void filterConnectedDevices() {
     availableDevices.erase(std::remove_if(
         availableDevices.begin(),
@@ -286,6 +309,7 @@ bool getLeafFromCache(LIBMTP_mtpdevice_t* device, wcharstring path, uint32_t& le
     );
     if(cacheItem == cache->end()) return false; // path not cached
     leaf = (*cacheItem).leaf;
+    if(leaf == 0) return true;
     // check if path exists and name matches
     LIBMTP_file_t *file = LIBMTP_Get_Filemetadata(device, leaf);
     if(file == NULL) {
@@ -382,11 +406,14 @@ void makeParentFolderItemsCacheIfNotExists(wcharstring path) {
         }
     }
     if(pathCache == NULL) return;
+
+    uint32_t cachedLeaf = pathCache->leaf;
+    if(cachedLeaf == 0) cachedLeaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
     // check if folder content is cached
     if(pathCache->elementsCache.size() == 0)
     {
         // if not cached, make cache
-        LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, pathCache->leaf);
+        LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, cachedLeaf);
         if (file != NULL) 
         {
             LIBMTP_file_t *tmp;
@@ -428,9 +455,11 @@ void makeFolderItemsCache(wcharstring folderPath) {
     }
     if(pathCache == NULL) return;
 
+    uint32_t cachedLeaf = pathCache->leaf;
+    if(cachedLeaf == 0) cachedLeaf = LIBMTP_FILES_AND_FOLDERS_ROOT;
     // clear and make new cache
     pathCache->elementsCache.clear();
-    LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, pathCache->leaf);
+    LIBMTP_file_t *file = LIBMTP_Get_Files_And_Folders(device, storage->id, cachedLeaf);
     if (file != NULL) 
     {
         LIBMTP_file_t *tmp;

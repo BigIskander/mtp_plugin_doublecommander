@@ -113,6 +113,7 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_NONE:
                 {
+                    // gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Ok.");
                     LIBMTP_mtpdevice_t *newDevice;
                     filterConnectedDevices();
                     for(int i = 0; i < numrawdevices; i++) {
