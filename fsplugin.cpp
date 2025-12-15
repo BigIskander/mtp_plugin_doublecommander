@@ -300,7 +300,7 @@ int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, Remot
         return FS_FILE_READERROR; // fail if parent folder was moved or renamed
 
     // search and get leaf from cache (for speed)
-    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+    if(!getLeafFromCachedFolder(device, wPath, leaf)) 
         return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
 
     copyFromTo pData;
@@ -365,7 +365,7 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     bool isLeafFound = false;
     uint32_t leaf; 
     // search and get leaf from cache (for speed)
-    if(getLeafFromCachedFolder(device, RemoteName, leaf)) 
+    if(getLeafFromCachedFolder(device, wPath, leaf)) 
         isLeafFound = true;
 
     // check if file already exists
@@ -457,7 +457,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     bool isOldFolder = false;
     uint32_t leafOld;
     // search and get leaf from cache (for speed)
-    if(!getLeafFromCachedFolder(deviceOld, OldName, leafOld))
+    if(!getLeafFromCachedFolder(deviceOld, wPathOld, leafOld))
         return FS_FILE_NOTFOUND; // if it is not in cache it is not exists probably
     
     // detect is it folder or not
@@ -522,7 +522,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     wcharstring parentFolderNew;
     bool isNewExists = false;
     uint32_t leafNew;
-    getFolderPath(NewName, parentFolderNew);
+    getFolderPath(wPathNew, parentFolderNew);
     // make cache if cache not exists (skip this step otherwise)
     if(!isFolderBusy(parentFolderNew)) 
     {
@@ -530,7 +530,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         addBusyFolder(parentFolderNew);
     }
     // search and get leaf from cache (for speed)
-    if(getLeafFromCachedFolder(deviceOld, NewName, leafNew))
+    if(getLeafFromCachedFolder(deviceOld, wPathNew, leafNew))
         isNewExists = true;
 
     if(isNewExists && !OverWrite)
@@ -605,7 +605,7 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
 
     uint32_t leaf;  
     // search and get leaf from cache (for speed)
-    if(!getLeafFromCachedFolder(device, RemoteName, leaf)) 
+    if(!getLeafFromCachedFolder(device, wPath, leaf)) 
         return false; // if it is not in cache it is not exists probably
     
     if(!deleteFileOrFolder(device, storage, leaf)) 
@@ -647,7 +647,7 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
         return false;
     
     // remove folder from cache after deletion
-    removeLeafsFromCache(device, RemoteName);
+    removeLeafsFromCache(device, wPath);
 
     return true;
 }
