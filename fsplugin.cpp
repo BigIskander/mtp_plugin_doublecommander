@@ -453,6 +453,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         if(storageOld == NULL)
             return FS_FILE_NOTFOUND;
 
+    // Save storage ID, otherwise LIBMTP changes it itself for some reason and this causes an error
+    uint32_t storageIdOld = storageOld->id;
+
     bool isOldFolder = false;
     uint32_t leafOld;
     // search and get leaf from cache (for speed)
@@ -508,14 +511,17 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(isOldFolder)
         return FS_FILE_NOTSUPPORTED; // or some other error
         
+    uint32_t storageIdNew;
     LIBMTP_devicestorage_t* storageNew;
     if(storageNameNew == storageNameOld)
     {
         storageNew = storageOld;
+        storageIdNew = storageIdOld;
     } else {
         storageNew = getStorage(deviceOld, storageNameNew);
         if(storageNew == NULL)
             return FS_FILE_WRITEERROR;
+        storageIdNew = storageNew->id;
     }
 
     wcharstring parentFolderNew;
@@ -560,7 +566,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     {
         if(
             LIBMTP_Move_Object(
-                deviceOld, leafOld, storageNew->id, parentLeafNew
+                deviceOld, leafOld, storageIdNew, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
@@ -570,7 +576,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     } else {
         if(
             LIBMTP_Copy_Object(
-                deviceOld, leafOld, storageNew->id, parentLeafNew
+                deviceOld, leafOld, storageIdNew, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
