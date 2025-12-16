@@ -453,8 +453,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         if(storageOld == NULL)
             return FS_FILE_NOTFOUND;
 
-    // Save storage ID, otherwise LIBMTP changes it itself for some reason and this causes an error
-    uint32_t storageIdOld = storageOld->id;
 
     bool isOldFolder = false;
     uint32_t leafOld;
@@ -516,7 +514,6 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(storageNameNew == storageNameOld)
     {
         storageNew = storageOld;
-        storageIdNew = storageIdOld;
     } else {
         storageNew = getStorage(deviceOld, storageNameNew);
         if(storageNew == NULL)
@@ -550,8 +547,17 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     ))
         return FS_FILE_WRITEERROR;
 
+    // to copy to root folder of storage
+    if(parentLeafNew == LIBMTP_FILES_AND_FOLDERS_ROOT) parentLeafNew = 0;
+
     if(gProgressProc(gPluginNumber, OldName, NewName, 0) != 0) 
         return FS_FILE_USERABORT;
+
+    // get storage again because
+    // LIBMTP changes storage ID itself for some reason and this causes an error
+    storageNew = getStorage(deviceOld, storageNameNew);
+    if(storageNew == NULL)
+            return FS_FILE_WRITEERROR;
 
     if(isNewExists & OverWrite)
     {
@@ -561,12 +567,11 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     }
 
     // move or copy the file
-    // notice: can't move or copy file (within device) to root folder of storage
     if(Move)
     {
         if(
             LIBMTP_Move_Object(
-                deviceOld, leafOld, storageIdNew, parentLeafNew
+                deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
@@ -576,7 +581,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     } else {
         if(
             LIBMTP_Copy_Object(
-                deviceOld, leafOld, storageIdNew, parentLeafNew
+                deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
             gProgressProc(gPluginNumber, OldName, NewName, 100);
