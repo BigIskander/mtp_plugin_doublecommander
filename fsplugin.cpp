@@ -113,7 +113,6 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
                 }
             case LIBMTP_ERROR_NONE:
                 {
-                    // gLogProc(gPluginNumber, MSGTYPE_CONNECT, (WCHAR*) u"Ok.");
                     LIBMTP_mtpdevice_t *newDevice;
                     filterConnectedDevices();
                     for(int i = 0; i < numrawdevices; i++) {
@@ -556,6 +555,7 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     }
 
     // move or copy the file
+    // notice: can't move or copy file (within device) to root folder of storage
     if(Move)
     {
         if(

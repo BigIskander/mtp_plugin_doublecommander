@@ -77,29 +77,6 @@ bool getPathLeaf(
     bool isFolder = true
 );
 
-// print content of cache used for debug only
-void printCacheContent() {
-    try
-    {
-        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*)u"Device:");
-        gLogProc(gPluginNumber, MSGTYPE_DETAILS, (WCHAR*)availableDevices[0].name.data());
-        auto cache = availableDevices[0].leafCache;
-        for(int i = 0; i < cache.size(); i++)
-        {
-            gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)cache[i].path.data());
-            auto subCache = cache[i].elementsCache;
-            for(int j = 0; j < subCache.size(); j++)
-            {
-                gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)subCache[j].path.data());
-            }
-        }
-    }
-    catch(const std::exception& e)
-    {
-        gLogProc(gPluginNumber, MSGTYPE_IMPORTANTERROR, (WCHAR*)UTF8toUTF16(e.what()).data());
-    }  
-}
-
 void filterConnectedDevices() {
     availableDevices.erase(std::remove_if(
         availableDevices.begin(),
