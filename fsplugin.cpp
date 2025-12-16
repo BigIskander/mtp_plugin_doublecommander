@@ -361,11 +361,23 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
     if(gProgressProc(gPluginNumber, LocalName, RemoteName, 0) != 0) 
         return FS_FILE_USERABORT;
 
+    getFolderPath(wPath, folderPath);
+    // make cache if cache not exists (skip this step otherwise)
+    if(!isFolderBusy(folderPath)) 
+    {
+        makeFolderItemsCache(folderPath);
+        addBusyFolder(folderPath);
+    }
+    
     bool isLeafFound = false;
     uint32_t leaf; 
     // search and get leaf from cache (for speed)
     if(getLeafFromCachedFolder(device, wPath, leaf)) 
         isLeafFound = true;
+
+    // get storage again because
+    // LIBMTP changes storage ID itself for some reason and this might causes an error
+    storage = getStorage(device, storageName);
 
     // check if file already exists
     if(isLeafFound) 
@@ -709,6 +721,10 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
 
     getFileName(internalPath, fileName);
 
+    // get storage again because
+    // LIBMTP changes storage ID itself for some reason and this might causes an error
+    storage = getStorage(device, storageName);
+
     if(LIBMTP_Create_Folder(
             device, 
             (char*)UTF16toUTF8((WCHAR*)fileName.data()).data(),
@@ -748,6 +764,8 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         {
             isPut = true;
             makeFolderItemsCache(wPath);
+            busyFolders.clear();
+            addBusyFolder(wPath);
         }  
         if(InfoStartEnd == FS_STATUS_END) 
         {
