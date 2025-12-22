@@ -1,6 +1,6 @@
 # MTP плагин для Double Commander
 
-[In english](README_RUS.md)
+[In english](README.md)
 
 Это плагин для файлового менеджера [Double Commander](https://doublecmd.sourceforge.io) в операционной системе macOS.
 
