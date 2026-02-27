@@ -1,6 +1,6 @@
 # MTP plugin for Double Commander
 
-[По русском](README_RUS.md)
+[По русски](README_RUS.md)
 
 This is the plugin for file manager [Double Commander](https://doublecmd.sourceforge.io) in macOS. 
 
