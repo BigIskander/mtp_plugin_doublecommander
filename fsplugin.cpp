@@ -216,7 +216,13 @@ HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
     }
 
     if(!pRes || pRes->resource_array.size()==0)
+    {
+        if(pRes) { // to release memory
+            pRes->resource_array.clear();
+            delete pRes;
+        }
         return (HANDLE)-1;
+    }
 
     if(pRes->resource_array.size()>0){
         memset(FindData, 0, sizeof(WIN32_FIND_DATAW));
