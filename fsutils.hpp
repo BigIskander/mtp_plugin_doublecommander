@@ -592,6 +592,7 @@ pResources showDevices()
             str_size * sizeof(WCHAR)
         );
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        pRes->resource_array[i].ftLastWriteTime = get_empty_time();
     }
     return pRes;
 }
@@ -619,6 +620,7 @@ pResources showStorages(LIBMTP_mtpdevice_t* device) {
         str_size = (MAX_PATH > wName.size()+1)? (wName.size()+1): MAX_PATH;
         memcpy(pRes->resource_array[i].cFileName, wName.data(), sizeof(WCHAR) * str_size);
         pRes->resource_array[i].dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+        pRes->resource_array[i].ftLastWriteTime = get_empty_time();
         storage = storage->next;
     }
     return pRes;

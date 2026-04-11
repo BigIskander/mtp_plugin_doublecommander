@@ -58,6 +58,16 @@ FILETIME get_file_time(time_t t)
     return file_time;
 }
 
+// add get empty time
+FILETIME get_empty_time()
+{
+    FILETIME file_time;
+    // values recommended by documantation when filetime unavailable
+    file_time.dwHighDateTime = 0xFFFFFFFF;
+    file_time.dwLowDateTime = 0xFFFFFFFE;
+    return file_time;
+}
+
 std::string UTF16toUTF8(const WCHAR *p)
 {
     // replaced codecvt_utf8 with codecvt_utf8_utf16 to fix an conversion error
