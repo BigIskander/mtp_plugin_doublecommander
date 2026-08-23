@@ -20,7 +20,7 @@ License along with this library; if not, write to the Free Software
         Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 */
 
-
+#include <cstring>
 #include "common.h"
 #include "fsplugin.h"
 #include "utils.hpp"
@@ -259,7 +259,15 @@ int DCPCALL FsFindClose(HANDLE Hdl)
 
 void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
 {
-    memcpy(DefRootName, _plugin_name, maxlen * sizeof(char));
+    if(maxlen <= 0)
+        return;
+
+    size_t len = strlen(_plugin_name) + 1; // includes the terminating null
+    if(len > (size_t)maxlen)
+        len = (size_t)maxlen;
+
+    memcpy(DefRootName, _plugin_name, len);
+    DefRootName[len - 1] = '\0';
 }
 
 int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, RemoteInfoStruct* ri)
