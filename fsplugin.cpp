@@ -491,8 +491,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(folderPathNew == wcharstring((WCHAR*)u"/").append(deviceNameNew))
         return FS_FILE_NOTSUPPORTED;
 
-    wcharstring fileNameNew;
+    wcharstring fileNameNew, fileNameOld;
         getFileName(wPathNew, fileNameNew);
+        getFileName(wPathOld, fileNameOld);
         if(fileNameNew == (WCHAR*)u"") // no empty name
             return FS_FILE_WRITEERROR;
 
@@ -532,6 +533,12 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 ) == 0
             ) {
                 LIBMTP_destroy_folder_t(folder);
+                // the id of the folder did not change, but its path did:
+                // drop the cached paths of the folder itself and of its content,
+                // and rename the item in the cache of the parent folder content
+                removeLeafsFromCache(deviceOld, wPathOld);
+                removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+                updateFolderItemCache(deviceOld, folderPathNew, fileNameNew, leafOld);
                 return FS_FILE_OK;
             }
             LIBMTP_destroy_folder_t(folder);
@@ -548,6 +555,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 ) == 0
             ) {
                 LIBMTP_destroy_file_t(file);
+                // the id of the file did not change, only its name,
+                // so just rename the item in the cache of the folder content
+                removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+                updateFolderItemCache(deviceOld, folderPathNew, fileNameNew, leafOld);
                 return FS_FILE_OK;
             }
             LIBMTP_destroy_file_t(file);
@@ -612,6 +623,8 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         // delete already existing file or folder (to replace with new one)
         if(!deleteFileOrFolder(deviceOld, storageNew, leafNew))
             return FS_FILE_WRITEERROR;
+        // the object does not exist anymore, drop it from the cache
+        removeFolderItemCache(deviceOld, parentFolderNew, fileNameNew);
     }
 
     // move or copy the file
@@ -622,6 +635,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
+            // the file keeps its id, only the parent folder changes,
+            // so move the item between the caches of the folder content as well
+            removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+            updateFolderItemCache(deviceOld, parentFolderNew, fileNameNew, leafOld);
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         } 
@@ -632,6 +649,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
+            // LIBMTP_Copy_Object does not return the id of the created copy,
+            // so there is nothing to put into the cache here, the item will be
+            // read from the device when the cache of the folder content is built
+            // (no stale item is left behind, so the cache stays valid)
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         } 
