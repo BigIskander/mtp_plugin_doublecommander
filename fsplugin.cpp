@@ -20,7 +20,8 @@ License along with this library; if not, write to the Free Software
         Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 */
 
-
+#include <cstring>
+#include <ctime>
 #include "common.h"
 #include "fsplugin.h"
 #include "utils.hpp"
@@ -47,6 +48,8 @@ LIBMTP_raw_device_t * rawdevices;
 int numrawdevices;
 bool isInit = false;
 bool isPut = false;
+// avoid repeating the same warning for every file of one operation
+bool isSetTimeUnsupportedLogged = false;
 
 HANDLE DCPCALL FsFindFirstW(WCHAR* Path, WIN32_FIND_DATAW *FindData)
 {
@@ -259,7 +262,15 @@ int DCPCALL FsFindClose(HANDLE Hdl)
 
 void DCPCALL FsGetDefRootName(char* DefRootName, int maxlen)
 {
-    memcpy(DefRootName, _plugin_name, maxlen * sizeof(char));
+    if(maxlen <= 0)
+        return;
+
+    size_t len = strlen(_plugin_name) + 1; // includes the terminating null
+    if(len > (size_t)maxlen)
+        len = (size_t)maxlen;
+
+    memcpy(DefRootName, _plugin_name, len);
+    DefRootName[len - 1] = '\0';
 }
 
 int DCPCALL FsGetFileW(WCHAR* RemoteName, WCHAR* LocalName, int CopyFlags, RemoteInfoStruct* ri)
@@ -746,6 +757,68 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
 }
     
 // managing cache in this function
+BOOL DCPCALL FsSetTimeW(WCHAR* RemoteName, FILETIME* CreationTime, 
+        FILETIME* LastAccessTime, FILETIME* LastWriteTime)
+{
+    // MTP keeps only the modification date, creation and access times are ignored
+    time_t modificationTime;
+    if(!get_time_t(LastWriteTime, modificationTime))
+        return false;
+
+    wcharstring wPath(RemoteName), deviceName, storageName, internalPath;
+    if(wPath.length() == 0) return false;
+    std::replace(wPath.begin(), wPath.end(), u'\\', u'/');
+
+    // no time to set on root folder of plugin, of device or of storage (not supported)
+    if(wPath == (WCHAR*)u"/")
+        return false;
+    parsePath(wPath, deviceName, storageName, internalPath);
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName))
+        return false;
+    if(wPath == wcharstring((WCHAR*)u"/").append(deviceName).append((WCHAR*)u"/").append(storageName))
+        return false;
+
+    LIBMTP_mtpdevice_t* device = getDevice(deviceName);
+    if(device == NULL)
+        return false;
+
+    LIBMTP_devicestorage_t* storage = getStorage(device, storageName);
+    if(storage == NULL)
+        return false;
+
+    uint32_t leaf;
+    // search and get leaf from cache (for speed)
+    if(!getLeafFromCachedFolder(device, wPath, leaf))
+    {
+        // the file may have just been uploaded and is not in the cache yet
+        wcharstring folderPath;
+        getFolderPath(wPath, folderPath);
+        makeFolderItemsCache(folderPath);
+        if(!getLeafFromCachedFolder(device, wPath, leaf))
+            return false;
+    }
+
+    // MTP expects the date as local time in the "YYYYMMDDThhmmss" format
+    char dateString[32];
+    struct tm localTime;
+    localtime_r(&modificationTime, &localTime);
+    if(strftime(dateString, sizeof(dateString), "%Y%m%dT%H%M%S", &localTime) == 0)
+        return false;
+
+    if(LIBMTP_Set_Object_String(device, leaf, LIBMTP_PROPERTY_DateModified, dateString) != 0)
+    {
+        if(!isSetTimeUnsupportedLogged)
+        {
+            isSetTimeUnsupportedLogged = true;
+            gLogProc(gPluginNumber, MSGTYPE_DETAILS, 
+                (WCHAR*) u"Device does not allow to set the file modification date.");
+        }
+        return false;
+    }
+
+    return true;
+}
+
 void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation)
 {
     wcharstring wPath(RemoteDir);
@@ -771,6 +844,7 @@ void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation
         if(InfoStartEnd == FS_STATUS_START) 
         {
             isPut = true;
+            isSetTimeUnsupportedLogged = false;
             makeFolderItemsCache(wPath);
             busyFolders.clear();
             addBusyFolder(wPath);

@@ -25,6 +25,7 @@ License along with this library; if not, write to the Free Software
 
 #include "common.h"
 #include <codecvt>
+#include <ctime>
 #include <locale>
 #include <vector>
 #include <sys/stat.h>
@@ -36,10 +37,19 @@ typedef struct {
 
 typedef std::basic_string<WCHAR> wcharstring;
 
+// FILETIME counts 100-nanosecond intervals since 1601-01-01,
+// time_t counts seconds since 1970-01-01
+const int64_t FILETIME_TICKS_PER_SECOND = 10000000;
+const int64_t FILETIME_AT_UNIX_EPOCH = 116444736000000000;
+
+// values recommended by documentation when filetime is unavailable
+const DWORD EMPTY_TIME_HIGH = 0xFFFFFFFF;
+const DWORD EMPTY_TIME_LOW = 0xFFFFFFFE;
+
 FILETIME get_now_time()
 {
     time_t t2 = time(0);
-    int64_t ft = (int64_t) t2 * 10000000 + 116444736000000000;
+    int64_t ft = (int64_t) t2 * FILETIME_TICKS_PER_SECOND + FILETIME_AT_UNIX_EPOCH;
     FILETIME file_time;
     // deleted: &0xffff - it causes time shift to ~5 min
     file_time.dwLowDateTime = ft;
@@ -50,7 +60,7 @@ FILETIME get_now_time()
 // add function converting time_t to FILETIME
 FILETIME get_file_time(time_t t)
 {
-    int64_t ft = (int64_t) t * 10000000 + 116444736000000000;
+    int64_t ft = (int64_t) t * FILETIME_TICKS_PER_SECOND + FILETIME_AT_UNIX_EPOCH;
     FILETIME file_time;
     // 
     file_time.dwLowDateTime = ft;
@@ -62,10 +72,25 @@ FILETIME get_file_time(time_t t)
 FILETIME get_empty_time()
 {
     FILETIME file_time;
-    // values recommended by documantation when filetime unavailable
-    file_time.dwHighDateTime = 0xFFFFFFFF;
-    file_time.dwLowDateTime = 0xFFFFFFFE;
+    file_time.dwHighDateTime = EMPTY_TIME_HIGH;
+    file_time.dwLowDateTime = EMPTY_TIME_LOW;
     return file_time;
+}
+
+// convert FILETIME to time_t, returns false when the time is not applicable
+bool get_time_t(const FILETIME* file_time, time_t& t)
+{
+    if(file_time == NULL) return false;
+    // the value the host uses to say "no time available"
+    if(file_time->dwHighDateTime == EMPTY_TIME_HIGH 
+        && file_time->dwLowDateTime == EMPTY_TIME_LOW) return false;
+
+    int64_t ft = ((int64_t) file_time->dwHighDateTime << 32) | (int64_t) file_time->dwLowDateTime;
+    // zero means unset, anything below the Unix epoch is not representable
+    if(ft < FILETIME_AT_UNIX_EPOCH) return false;
+
+    t = (time_t) ((ft - FILETIME_AT_UNIX_EPOCH) / FILETIME_TICKS_PER_SECOND);
+    return true;
 }
 
 std::string UTF16toUTF8(const WCHAR *p)
