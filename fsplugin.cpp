@@ -820,7 +820,6 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     return true;
 }
     
-// managing cache in this function
 BOOL DCPCALL FsSetTimeW(WCHAR* RemoteName, FILETIME* CreationTime, 
         FILETIME* LastAccessTime, FILETIME* LastWriteTime)
 {
@@ -880,7 +879,11 @@ BOOL DCPCALL FsSetTimeW(WCHAR* RemoteName, FILETIME* CreationTime,
         {
             isSetTimeUnsupportedLogged = true;
             gLogProc(gPluginNumber, MSGTYPE_DETAILS, 
-                (WCHAR*) u"Device does not allow to set the file modification date.");
+                (WCHAR*)wcharstring((WCHAR*)u"Device \"")
+                    .append(deviceName.data())
+                    .append((WCHAR*)u"\" does not allow to set the file modification date.")
+                    .data()
+            );
         }
         return false;
     }
@@ -888,6 +891,7 @@ BOOL DCPCALL FsSetTimeW(WCHAR* RemoteName, FILETIME* CreationTime,
     return true;
 }
 
+// managing cache in this function
 void DCPCALL FsStatusInfoW(WCHAR* RemoteDir, int InfoStartEnd, int InfoOperation)
 {
     wcharstring wPath(RemoteDir);
