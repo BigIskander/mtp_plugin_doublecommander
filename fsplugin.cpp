@@ -408,6 +408,8 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
             // delete already existing file or folder (to replace with new one)
             if(!deleteFileOrFolder(device, storage, leaf))
                 return FS_FILE_WRITEERROR;
+            // the object does not exist anymore, drop it from the cache
+            removeFolderItemCache(device, folderPath, fileName);
         }
     }
 
@@ -430,6 +432,23 @@ int DCPCALL FsPutFileW(WCHAR* LocalName, WCHAR* RemoteName, int CopyFlags) {
         LIBMTP_destroy_file_t(genfile);
         return FS_FILE_WRITEERROR;
     }
+
+    // LIBMTP returns the id of the newly created object in genfile->item_id,
+    // put it into the cache of the folder content (write-through cache),
+    // so operations which follow the upload (FsSetTimeW) do not have to
+    // re-read the whole folder content from the device to find the file
+    // (the device is allowed to change the file name and the parent folder,
+    // so use the values returned by LIBMTP and skip the update if the file
+    // was placed somewhere else)
+    uint32_t returnedParent = genfile->parent_id;
+    // items in the root of the storage report parent id 0, but the root itself is -1
+    if(returnedParent == 0) returnedParent = LIBMTP_FILES_AND_FOLDERS_ROOT;
+    uint32_t requestedParent = folderLeaf;
+    if(requestedParent == 0) requestedParent = LIBMTP_FILES_AND_FOLDERS_ROOT;
+    if(genfile->filename != NULL && returnedParent == requestedParent)
+        updateFolderItemCache(
+            device, folderPath, UTF8toUTF16(genfile->filename), genfile->item_id
+        );
 
     LIBMTP_destroy_file_t(genfile);   
     gProgressProc(gPluginNumber, LocalName, RemoteName, 100); 
@@ -472,8 +491,9 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
     if(folderPathNew == wcharstring((WCHAR*)u"/").append(deviceNameNew))
         return FS_FILE_NOTSUPPORTED;
 
-    wcharstring fileNameNew;
+    wcharstring fileNameNew, fileNameOld;
         getFileName(wPathNew, fileNameNew);
+        getFileName(wPathOld, fileNameOld);
         if(fileNameNew == (WCHAR*)u"") // no empty name
             return FS_FILE_WRITEERROR;
 
@@ -513,6 +533,12 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 ) == 0
             ) {
                 LIBMTP_destroy_folder_t(folder);
+                // the id of the folder did not change, but its path did:
+                // drop the cached paths of the folder itself and of its content,
+                // and rename the item in the cache of the parent folder content
+                removeLeafsFromCache(deviceOld, wPathOld);
+                removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+                updateFolderItemCache(deviceOld, folderPathNew, fileNameNew, leafOld);
                 return FS_FILE_OK;
             }
             LIBMTP_destroy_folder_t(folder);
@@ -529,6 +555,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 ) == 0
             ) {
                 LIBMTP_destroy_file_t(file);
+                // the id of the file did not change, only its name,
+                // so just rename the item in the cache of the folder content
+                removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+                updateFolderItemCache(deviceOld, folderPathNew, fileNameNew, leafOld);
                 return FS_FILE_OK;
             }
             LIBMTP_destroy_file_t(file);
@@ -593,6 +623,8 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
         // delete already existing file or folder (to replace with new one)
         if(!deleteFileOrFolder(deviceOld, storageNew, leafNew))
             return FS_FILE_WRITEERROR;
+        // the object does not exist anymore, drop it from the cache
+        removeFolderItemCache(deviceOld, parentFolderNew, fileNameNew);
     }
 
     // move or copy the file
@@ -603,6 +635,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
+            // the file keeps its id, only the parent folder changes,
+            // so move the item between the caches of the folder content as well
+            removeFolderItemCache(deviceOld, folderPathOld, fileNameOld);
+            updateFolderItemCache(deviceOld, parentFolderNew, fileNameNew, leafOld);
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         } 
@@ -613,6 +649,10 @@ int DCPCALL FsRenMovFileW(WCHAR* OldName, WCHAR* NewName, BOOL Move, BOOL OverWr
                 deviceOld, leafOld, storageNew->id, parentLeafNew
             ) == 0
         ) {
+            // LIBMTP_Copy_Object does not return the id of the created copy,
+            // so there is nothing to put into the cache here, the item will be
+            // read from the device when the cache of the folder content is built
+            // (no stale item is left behind, so the cache stays valid)
             gProgressProc(gPluginNumber, OldName, NewName, 100);
             return FS_FILE_OK;
         } 
@@ -651,6 +691,12 @@ BOOL DCPCALL FsDeleteFileW(WCHAR* RemoteName)
     if(!deleteFileOrFolder(device, storage, leaf)) 
         return false;
 
+    // the object does not exist anymore, drop it from the cache of the folder content
+    wcharstring folderPath, fileName;
+    getFolderPath(wPath, folderPath);
+    getFileName(wPath, fileName);
+    removeFolderItemCache(device, folderPath, fileName);
+
     return true;
 }
 
@@ -688,6 +734,11 @@ BOOL DCPCALL FsRemoveDirW(WCHAR* RemoteName)
     
     // remove folder from cache after deletion
     removeLeafsFromCache(device, wPath);
+    // and drop it from the cache of the content of the parent folder as well
+    wcharstring folderPath, fileName;
+    getFolderPath(wPath, folderPath);
+    getFileName(wPath, fileName);
+    removeFolderItemCache(device, folderPath, fileName);
 
     return true;
 }
@@ -744,14 +795,27 @@ BOOL DCPCALL FsMkDirW(WCHAR* Path)
     if(storage == NULL)
         return false;
 
-    if(LIBMTP_Create_Folder(
-            device, 
-            (char*)UTF16toUTF8((WCHAR*)fileName.data()).data(),
-            folderLeaf, 
-            storage->id
-        ) == 0
-    )
+    // LIBMTP is allowed to modify the name in place
+    // (if the device does not support all the characters in it),
+    // so keep the buffer alive to know the name the folder was actually created with
+    std::string newFolderName = UTF16toUTF8((WCHAR*)fileName.data());
+    uint32_t newFolderLeaf = LIBMTP_Create_Folder(
+        device, 
+        (char*)newFolderName.data(),
+        folderLeaf, 
+        storage->id
+    );
+    if(newFolderLeaf == 0)
         return false;
+
+    // LIBMTP returns the id of the newly created folder,
+    // put it into the cache of the content of the parent folder (write-through cache),
+    // so it does not have to be read from the device again
+    wcharstring parentFolderPath;
+    getFolderPath(wPath, parentFolderPath);
+    updateFolderItemCache(
+        device, parentFolderPath, UTF8toUTF16(newFolderName.data()), newFolderLeaf
+    );
 
     return true;
 }
@@ -790,9 +854,14 @@ BOOL DCPCALL FsSetTimeW(WCHAR* RemoteName, FILETIME* CreationTime,
     // search and get leaf from cache (for speed)
     if(!getLeafFromCachedFolder(device, wPath, leaf))
     {
-        // the file may have just been uploaded and is not in the cache yet
         wcharstring folderPath;
         getFolderPath(wPath, folderPath);
+        // never re-read the folder content while files are being copied into it:
+        // freshly uploaded files are put into the cache by FsPutFileW, and reading
+        // the whole folder content for every single file is very slow
+        // (folders containing a lot of files)
+        if(isFolderBusy(folderPath))
+            return false;
         makeFolderItemsCache(folderPath);
         if(!getLeafFromCachedFolder(device, wPath, leaf))
             return false;

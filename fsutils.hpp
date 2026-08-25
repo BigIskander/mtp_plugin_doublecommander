@@ -454,6 +454,64 @@ void makeFolderItemsCache(wcharstring folderPath) {
     }
 }
 
+// add or update single item in the cache of the folder content
+// (write-through cache update, is used right after an item was created on the device,
+// to avoid re-reading the whole folder content from the device later)
+void updateFolderItemCache(
+    LIBMTP_mtpdevice_t* device,
+    wcharstring folderPath,
+    wcharstring itemName,
+    uint32_t leaf
+) {
+    if(device == NULL) return;
+    if(folderPath.length() == 0 || itemName.length() == 0) return;
+    // if there is no cache for this folder, there is nothing to update
+    PathFolderElement* pathCache = getPathFolderElement(device, folderPath);
+    if(pathCache == NULL) return;
+    auto el = std::find_if(
+        pathCache->elementsCache.begin(),
+        pathCache->elementsCache.end(),
+        [itemName](const PathElement& item)
+        {
+            return item.path == itemName;
+        }
+    );
+    // replace already cached item (it might be overwritten on the device),
+    // do not add a second entry with the same name
+    if(el != pathCache->elementsCache.end())
+    {
+        (*el).leaf = leaf;
+        return;
+    }
+    PathElement pathE;
+    pathE.leaf = leaf;
+    pathE.path = itemName;
+    pathCache->elementsCache.push_back(pathE);
+}
+
+// remove single item from the cache of the folder content
+// (is used right after an item was deleted from the device,
+// otherwise the cache keeps the id of an object which does not exist anymore)
+void removeFolderItemCache(
+    LIBMTP_mtpdevice_t* device,
+    wcharstring folderPath,
+    wcharstring itemName
+) {
+    if(device == NULL) return;
+    if(folderPath.length() == 0 || itemName.length() == 0) return;
+    PathFolderElement* pathCache = getPathFolderElement(device, folderPath);
+    if(pathCache == NULL) return;
+    auto el = std::remove_if(
+        pathCache->elementsCache.begin(),
+        pathCache->elementsCache.end(),
+        [itemName](const PathElement& item)
+        {
+            return item.path == itemName;
+        }
+    );
+    pathCache->elementsCache.erase(el, pathCache->elementsCache.end());
+}
+
 bool getLeafFromCachedFolder(
     LIBMTP_mtpdevice_t* device,
     wcharstring path,
